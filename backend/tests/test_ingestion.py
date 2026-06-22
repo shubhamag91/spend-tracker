@@ -136,3 +136,29 @@ def test_does_not_flag_salary_or_merchants():
 
 def test_no_names_configured_flags_nothing():
     assert is_internal_transfer("IMPS-123-YOURNAME-UTIB", []) is False
+
+
+from app.utils.merchant import normalize_merchant
+
+
+def test_merchant_strips_reference_numbers():
+    # same payee, different per-txn reference -> same merchant key
+    a = normalize_merchant("ACH D- INDIAN CLEARING CORP-P7173384X179")
+    b = normalize_merchant("ACH D- INDIAN CLEARING CORP-P7173384X185")
+    assert a == b == "INDIAN CLEARING CORP"
+
+
+def test_merchant_extracts_upi_payee():
+    d = "UPI-CRED CLUB-CRED.CLUB@AXISB-UTIB0000114-645902607640-PAYMENT ON CRED"
+    assert normalize_merchant(d) == "CRED CLUB"
+
+
+def test_merchant_skips_ifsc_and_takes_name():
+    d = "NEFT DR-PUNB0296800-SUBHASH KUMAR SINGH-NETBANK, MUM-HDFCH00911191177-APR26"
+    assert normalize_merchant(d) == "SUBHASH KUMAR SINGH"
+
+
+def test_merchant_drops_trailing_note_noise():
+    # payee field present; trailing "PAID VIA CRED" must not win
+    d = "UPI-HARI SINGH-PAYTM.S1TRCRY@PTY-YESB0MCHUPI-648015132598-PAID VIA CRED"
+    assert normalize_merchant(d) == "HARI SINGH"

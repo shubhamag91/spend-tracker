@@ -1,5 +1,5 @@
 from __future__ import annotations
-from collections import defaultdict
+from collections import defaultdict, Counter
 from datetime import date, timedelta
 from typing import Optional, List
 from fastapi import APIRouter, Depends, Query
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.transaction import Transaction
 from app.models.category import Category
+from app.utils.merchant import normalize_merchant
 from app.schemas.transaction import (
     AnalyticsSummary, TimeSeriesPoint, CategorySpend, InsightItem,
     WeeklyVelocityPoint, HeatmapCell, MerchantSpend, RecurringTransaction,
@@ -404,44 +405,78 @@ def top_merchants(
 
 # ── Recurring transactions ─────────────────────────────────────────────────────
 
+def _as_date(d):
+    if isinstance(d, str):
+        from datetime import datetime as dt
+        return dt.strptime(d[:10], "%Y-%m-%d").date()
+    return d
+
+
 @router.get("/recurring", response_model=List[RecurringTransaction])
 def recurring(
     mode: str = Query("real", pattern="^(real|demo)$"),
     db: Session = Depends(get_db),
 ):
-    # Find descriptions that appear >= 2 times with similar amounts
+    """Recurring spends, grouped by *normalized merchant* (not raw description).
+
+    Raw descriptions carry a unique reference number per transaction, so grouping
+    on them never collapses the same payee. We normalize to a merchant key first,
+    then surface merchants seen >= 2 times, with a cadence inferred from the gaps
+    between occurrences.
+    """
     rows = (
         db.query(
             Transaction.description,
+            Transaction.amount,
+            Transaction.date,
             func.coalesce(Category.name, "Uncategorized").label("category"),
-            func.avg(Transaction.amount).label("avg_amount"),
-            func.count(Transaction.id).label("cnt"),
-            func.max(Transaction.date).label("last_date"),
         )
         .outerjoin(Category, Transaction.category_id == Category.id)
-        .filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
-        .group_by(Transaction.description, Category.name)
-        .having(func.count(Transaction.id) >= 2)
-        .order_by(func.sum(Transaction.amount).desc())
-        .limit(10)
+        .filter(
+            Transaction.data_mode == mode,
+            Transaction.is_internal_transfer == False,
+            Transaction.is_investment == False,
+            Transaction.is_card_payment == False,
+            Transaction.transaction_type == "debit",
+        )
         .all()
     )
 
-    result = []
+    groups: dict[str, list] = defaultdict(list)
     for r in rows:
-        last = r.last_date
-        if isinstance(last, str):
-            from datetime import datetime as dt
-            last = dt.strptime(last, "%Y-%m-%d").date()
-        next_due = (last + timedelta(days=30)).strftime("%b %d") if last else None
-        result.append(RecurringTransaction(
-            name=r.description[:40],
-            category=r.category,
-            amount=round(float(r.avg_amount), 2),
-            frequency="monthly",
-            next_due=next_due,
+        groups[normalize_merchant(r.description)].append(r)
+
+    scored = []
+    for merchant, items in groups.items():
+        if len(items) < 2:
+            continue
+        dates = sorted(_as_date(r.date) for r in items)
+        amounts = [float(r.amount) for r in items]
+        total = sum(amounts)
+        # cadence = median gap between consecutive occurrences
+        gaps = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
+        gaps = [g for g in gaps if g > 0] or [30]
+        median_gap = sorted(gaps)[len(gaps) // 2]
+        if median_gap <= 10:
+            frequency = "weekly"
+        elif median_gap <= 45:
+            frequency = "monthly"
+        else:
+            frequency = "quarterly"
+        cat_counts = Counter(r.category for r in items)
+        scored.append((
+            total,
+            RecurringTransaction(
+                name=merchant,
+                category=cat_counts.most_common(1)[0][0],
+                amount=round(total / len(amounts), 2),
+                frequency=frequency,
+                next_due=(dates[-1] + timedelta(days=median_gap)).strftime("%b %d"),
+            ),
         ))
-    return result
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [rt for _, rt in scored[:10]]
 
 
 # ── Income breakdown ───────────────────────────────────────────────────────────

@@ -200,3 +200,55 @@ def test_transaction_carries_account(client):
     assert len(tagged) == 1
     assert tagged[0]["account"]["name"] == "Yes Bank"
     assert tagged[0]["account"]["type"] == "bank"
+
+
+def test_transactions_sort_by_amount(client, seed_transactions):
+    # seed amounts are 100,200,300,400,500
+    asc = client.get("/api/transactions?mode=real&sort_by=amount&sort_dir=asc").json()["items"]
+    assert [t["amount"] for t in asc] == [100.0, 200.0, 300.0, 400.0, 500.0]
+
+    desc = client.get("/api/transactions?mode=real&sort_by=amount&sort_dir=desc").json()["items"]
+    assert [t["amount"] for t in desc] == [500.0, 400.0, 300.0, 200.0, 100.0]
+
+    # invalid sort field is rejected by the pattern guard
+    assert client.get("/api/transactions?mode=real&sort_by=description").status_code == 422
+
+
+def test_reconcile_interbank_transfers(client):
+    from datetime import date
+    from app.models.account import Account
+    db = TestingSession()
+    a = Account(name="Bank A", type="bank"); b = Account(name="Bank B", type="bank")
+    db.add_all([a, b]); db.commit(); db.refresh(a); db.refresh(b)
+
+    def txn(amount, ttype, acct_id, d, rh):
+        return Transaction(date=d, amount=amount, transaction_type=ttype,
+                           description=f"{ttype} {amount}", source="test",
+                           data_mode="real", row_hash=rh, account_id=acct_id)
+
+    db.add_all([
+        # a real transfer: debit in A, matching credit in B one day later -> should pair
+        txn(5000.0, "debit", a.id, date(2025, 5, 1), "t1"),
+        txn(5000.0, "credit", b.id, date(2025, 5, 2), "t2"),
+        # same amount but same account -> NOT a transfer
+        txn(5000.0, "credit", a.id, date(2025, 5, 1), "t3"),
+        # cross-account but amounts differ -> NOT a transfer
+        txn(999.0, "debit", a.id, date(2025, 5, 1), "t4"),
+        txn(123.0, "credit", b.id, date(2025, 5, 1), "t5"),
+        # cross-account, equal amount, but 30 days apart -> outside window, NOT a transfer
+        txn(700.0, "debit", a.id, date(2025, 5, 1), "t6"),
+        txn(700.0, "credit", b.id, date(2025, 6, 1), "t7"),
+    ])
+    db.commit(); db.close()
+
+    r = client.post("/api/transactions/reconcile-transfers?mode=real")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["matched_pairs"] == 1
+    assert body["total_amount"] == 5000.0
+    assert body["transfers"][0]["from_account"] == "Bank A"
+    assert body["transfers"][0]["to_account"] == "Bank B"
+
+    # exactly the two matched rows are flagged internal
+    flagged = client.get("/api/transactions?mode=real&page_size=50").json()["items"]
+    assert sum(1 for t in flagged if t["is_internal_transfer"]) == 2

@@ -2,11 +2,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import client from '../api/client';
 import type { TransactionPage } from '../types';
 
+export type SortField = 'date' | 'amount';
+export type SortDir = 'asc' | 'desc';
+
 interface TransactionFilter {
   mode: string;
   start_date?: string;
   end_date?: string;
   category_id?: number;
+  sort_by?: SortField;
+  sort_dir?: SortDir;
   page?: number;
   page_size?: number;
 }
@@ -16,6 +21,8 @@ export function useTransactions(filter: TransactionFilter) {
   if (filter.start_date) params.start_date = filter.start_date;
   if (filter.end_date) params.end_date = filter.end_date;
   if (filter.category_id) params.category_id = filter.category_id;
+  if (filter.sort_by) params.sort_by = filter.sort_by;
+  if (filter.sort_dir) params.sort_dir = filter.sort_dir;
   params.page = filter.page ?? 1;
   params.page_size = filter.page_size ?? 50;
 

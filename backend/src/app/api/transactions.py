@@ -7,8 +7,16 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.transaction import Transaction
 from app.schemas.transaction import TransactionOut, TransactionPage
+from app.utils.interbank import reconcile_internal_transfers
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
+
+
+# Whitelist of sortable columns → ORM attribute. Guards against arbitrary order_by.
+_SORTABLE = {
+    "date": Transaction.date,
+    "amount": Transaction.amount,
+}
 
 
 @router.get("", response_model=TransactionPage)
@@ -18,6 +26,8 @@ def list_transactions(
     end_date: Optional[date] = None,
     category_id: Optional[int] = None,
     transaction_type: Optional[str] = None,
+    sort_by: str = Query("date", pattern="^(date|amount)$"),
+    sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -33,8 +43,11 @@ def list_transactions(
         q = q.filter(Transaction.transaction_type == transaction_type)
 
     total = q.count()
+    sort_col = _SORTABLE[sort_by]
+    primary = sort_col.asc() if sort_dir == "asc" else sort_col.desc()
+    # id as a stable tiebreaker so equal values (esp. equal amounts) page deterministically
     items = (
-        q.order_by(Transaction.date.desc(), Transaction.id.desc())
+        q.order_by(primary, Transaction.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
@@ -47,6 +60,32 @@ def list_transactions(
         page_size=page_size,
         total_pages=math.ceil(total / page_size) if total > 0 else 1,
     )
+
+
+@router.post("/reconcile-transfers")
+def reconcile_transfers(
+    mode: str = Query("real", pattern="^(real|demo)$"),
+    db: Session = Depends(get_db),
+):
+    """(Re)detect transfers between the user's own accounts and flag both sides
+    as internal transfers. Returns the matched pairs."""
+    pairs = reconcile_internal_transfers(db, mode)
+    return {
+        "matched_pairs": len(pairs),
+        "total_amount": round(sum(p.debit.amount for p in pairs), 2),
+        "transfers": [
+            {
+                "amount": p.debit.amount,
+                "from_account": p.debit.account.name if p.debit.account else None,
+                "to_account": p.credit.account.name if p.credit.account else None,
+                "debit_date": p.debit.date.isoformat(),
+                "credit_date": p.credit.date.isoformat(),
+                "debit_id": p.debit.id,
+                "credit_id": p.credit.id,
+            }
+            for p in pairs
+        ],
+    }
 
 
 @router.patch("/{txn_id}/category", response_model=TransactionOut)

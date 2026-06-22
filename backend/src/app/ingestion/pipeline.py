@@ -4,6 +4,7 @@ from app.ingestion.registry import get_parser
 from app.ingestion.normalizer import normalize_and_insert
 from app.models.transaction import IngestLog
 from app.utils.dedup import file_hash as compute_file_hash
+from app.utils.interbank import reconcile_internal_transfers
 
 
 def run_ingestion(
@@ -37,6 +38,9 @@ def run_ingestion(
         log.rows_inserted = inserted
         log.rows_skipped = skipped
         log.status = "success"
+        # Re-pair cross-account transfers now that this file's rows are in.
+        if inserted:
+            reconcile_internal_transfers(db, data_mode)
     except Exception as e:
         log.status = "failed"
         log.error_message = str(e)

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Transaction } from '../../types';
+import type { SortField, SortDir } from '../../hooks/useTransactions';
 import { useCategories } from '../../hooks/useCategories';
 import { useUpdateCategory } from '../../hooks/useTransactions';
 import { formatDate, formatCurrency } from '../../utils/formatters';
@@ -13,6 +14,30 @@ interface Props {
   page: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  sortBy: SortField;
+  sortDir: SortDir;
+  onSort: (field: SortField) => void;
+}
+
+// A clickable column header that shows the active sort direction.
+function SortHeader({
+  label, field, sortBy, sortDir, onSort, align = 'left',
+}: {
+  label: string; field: SortField; sortBy: SortField; sortDir: SortDir;
+  onSort: (f: SortField) => void; align?: 'left' | 'right';
+}) {
+  const active = sortBy === field;
+  return (
+    <th className={`px-4 py-3 text-${align}`}>
+      <button
+        onClick={() => onSort(field)}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-slate-700 ${active ? 'text-slate-700 font-semibold' : ''}`}
+      >
+        {label}
+        <span className="text-[10px]">{active ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}</span>
+      </button>
+    </th>
+  );
 }
 
 function CategoryDropdown({ txnId, currentCategoryId }: { txnId: number; currentCategoryId: number | null }) {
@@ -51,7 +76,7 @@ function CategoryDropdown({ txnId, currentCategoryId }: { txnId: number; current
   );
 }
 
-export default function TransactionTable({ transactions, isLoading, total, page, totalPages, onPageChange }: Props) {
+export default function TransactionTable({ transactions, isLoading, total, page, totalPages, onPageChange, sortBy, sortDir, onSort }: Props) {
   if (isLoading) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 flex items-center justify-center h-64">
@@ -88,11 +113,11 @@ export default function TransactionTable({ transactions, isLoading, total, page,
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
             <tr>
-              <th className="px-4 py-3 text-left">Date</th>
+              <SortHeader label="Date" field="date" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
               <th className="px-4 py-3 text-left">Description</th>
               <th className="px-4 py-3 text-left">Category</th>
               <th className="px-4 py-3 text-left">Source</th>
-              <th className="px-4 py-3 text-right">Amount</th>
+              <SortHeader label="Amount" field="amount" sortBy={sortBy} sortDir={sortDir} onSort={onSort} align="right" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMode } from '../store/demoMode';
-import { useTransactions } from '../hooks/useTransactions';
+import { useTransactions, type SortField, type SortDir } from '../hooks/useTransactions';
 import { useByDay } from '../hooks/useAnalytics';
 import TransactionTable from '../components/transactions/TransactionTable';
 import DateRangeFilter, { type DateRange, PRESETS } from '../components/dashboard/DateRangeFilter';
@@ -12,6 +12,8 @@ export default function Transactions() {
   const isDemoMode = useDemoModeStore((s) => s.isDemoMode);
   const [range, setRange] = useState<DateRange>(PRESETS[0]);
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<SortField>('date');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [showUpload, setShowUpload] = useState(false);
 
   const dateRange = range.start ? { start: range.start, end: range.end } : undefined;
@@ -25,12 +27,25 @@ export default function Transactions() {
     mode,
     start_date: dateRange?.start,
     end_date: dateRange?.end,
+    sort_by: sortBy,
+    sort_dir: sortDir,
     page,
     page_size: 50,
   });
 
   function handleRangeChange(r: DateRange) {
     setRange(r);
+    setPage(1);
+  }
+
+  // Click a sortable header: toggle direction if already active, else default desc.
+  function handleSort(field: SortField) {
+    if (field === sortBy) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(field);
+      setSortDir('desc');
+    }
     setPage(1);
   }
 
@@ -57,6 +72,9 @@ export default function Transactions() {
         page={data?.page ?? 1}
         totalPages={data?.total_pages ?? 1}
         onPageChange={setPage}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        onSort={handleSort}
       />
 
       {showUpload && <FileUploadModal onClose={() => setShowUpload(false)} />}
