@@ -5,6 +5,14 @@ _Last updated: June 2026 · single canonical reference_
 The complete guide to Spend Tracker — the mental model, every screen, the full
 API, backend internals, and how each number is computed.
 
+> **🚧 Multi-account / multi-card support is being introduced.** The data-model
+> foundation has shipped — an `Account` entity (bank or card), an `account_id` on
+> every transaction, account-aware deduplication, and an `/api/accounts` CRUD API
+> (§6, §8). Still in progress: tagging each imported statement to an account,
+> per-account analytics filtering, the account-selector UI, and credit-card
+> statement parsers. Until those land, the dashboard still presents a single
+> combined view. See the [ROADMAP](ROADMAP.md#multi-account--multi-bank).
+
 ## Table of contents
 1. [Overview](#1-overview)
 2. [The Wallet model](#2-the-wallet-model-core-concept)
@@ -105,6 +113,7 @@ savings rate, income stability, income diversification, monthly budgets.
 │  │  /api/analytics/*       │   │  Parser Registry → Normalizer    │  │
 │  │  /api/transactions      │   │  (+ transfer/investment flags)   │  │
 │  │  /api/categories        │   │  → Categorizer → Dedup → SQLite  │  │
+│  │  /api/accounts          │   │  (dedup scoped per account_id)   │  │
 │  │  /api/upload  /api/demo  │   └──────────────────────────────────┘  │
 │  └─────────────────────────┘                                         │
 │  File Watcher (watchdog) — monitors backend/data/watched_folder/     │
@@ -226,6 +235,22 @@ endpoints accept `mode=real|demo` and optional `start_date` / `end_date` (ISO).
 ### Categories — `/api/categories`
 `GET ""` · `POST ""` · `PATCH /{id}` · `DELETE /{id}`
 
+### Accounts — `/api/accounts`
+The bank accounts and credit cards you own. Each transaction links to one via
+`account_id`, and the transaction list now returns a nested `account` object
+(`id · name · type`).
+
+| Endpoint | Purpose |
+|---|---|
+| `GET ""` | List accounts (ordered by type, then name) |
+| `POST ""` | Create — `name` (unique), `type` ∈ {`bank`, `card`}, optional `issuer`, `last4` |
+| `PATCH /{id}` | Update any field |
+| `DELETE /{id}` | Delete — linked transactions survive, their `account_id` is set null |
+
+> **Foundation only (in progress).** `account_id` is exposed on transactions but is
+> **not yet a query filter**, and analytics endpoints do not yet scope by account.
+> Statement-to-account tagging at ingestion is the next step. See the top-of-doc note.
+
 ### Upload / Demo / Health
 - `POST /api/upload` (multipart, `?mode=real|demo`) → runs ingestion; `GET /api/ingest-log[/{id}]`
 - `POST /api/demo/generate` · `DELETE /api/demo/clear`
@@ -247,10 +272,12 @@ File (CSV/XLS/XLSX)
    → RawTransaction[]  (bank-specific fields, raw strings)
    → Normalizer        (standard schema; sets is_internal_transfer + is_investment)
    → Categorizer       (keyword match → category_id)
-   → Dedup guard       (SHA-256 row hash UNIQUE)
+   → Dedup guard       (SHA-256 row hash UNIQUE, scoped per account)
    → SQLite
 ```
-Entry points: the file watcher and the upload API both funnel into the same pipeline.
+Entry points: the file watcher and the upload API both funnel into the same
+pipeline. `run_ingestion(...)` and `normalize_and_insert(...)` accept an optional
+`account_id` that is stamped on every inserted row and folded into its dedup hash.
 
 ### Parser registry & adding a bank
 Each parser implements `can_parse(filepath, headers)` and `parse(filepath)`
@@ -277,8 +304,19 @@ is stateless. The frontend Zustand store includes `mode` in every query key.
 
 ### Deduplication
 - **File hash** — SHA-256 of the file in `ingest_log`; re-ingesting a file is a no-op.
-- **Row hash** — SHA-256 of `(date, amount, description)` as a UNIQUE constraint;
-  overlapping date-range exports skip duplicates silently.
+- **Row hash** — SHA-256 of `(account_id, date, amount, description)` as a UNIQUE
+  constraint; overlapping date-range exports skip duplicates silently. Including
+  `account_id` means the *same* charge (same date / amount / description) seen in two
+  different accounts — e.g. a ₹200 Swiggy order on both your HDFC and Yes Bank — is
+  kept as two rows instead of being silently collapsed into one.
+
+### Schema migrations
+Tables are created with `Base.metadata.create_all` at startup, which builds *new*
+tables but never ALTERs an existing one. `app/migrations.py::run_migrations(engine)`
+(called right after `create_all`) closes that gap for additive columns — it inspects
+each table and adds any missing column in place, so an already-populated SQLite DB
+upgrades without losing data. This is how the `transactions.account_id` column lands
+on existing databases. (Alembic is a dependency but is not currently wired up.)
 
 ---
 
@@ -293,13 +331,18 @@ is stateless. The frontend Zustand store includes `mode` in every query key.
 | `transaction_type` | `debit` / `credit` |
 | `description` / `raw_description` | cleaned / original payee |
 | `category_id` | FK → categories (null = Uncategorized) |
+| `account_id` | FK → accounts (null = untagged); `ON DELETE SET NULL` |
 | `source` | parser that produced it |
 | `data_mode` | `real` / `demo` |
 | `is_internal_transfer` | top-up / self-transfer flag (§4.1) |
 | `is_investment` | investment-outflow flag (§4.2) |
-| `file_hash` / `row_hash` | dedup guards (SHA-256) |
+| `is_card_payment` | credit-card bill-settlement flag (debits only) |
+| `file_hash` / `row_hash` | dedup guards (SHA-256; `row_hash` includes `account_id`) |
 | `created_at` | timestamp |
 
+Indexes: `(date, data_mode)`, `(category_id)`, `(account_id)`.
+
+**`accounts`** — `id · name (unique) · type` (`bank`/`card`) `· issuer · last4 · created_at`
 **`categories`** — `id · name · color · keywords_json`
 **`ingest_log`** — `id · filename · file_hash · parser_used · rows_parsed/inserted/skipped · status · error_message · ingested_at`
 
@@ -343,15 +386,20 @@ npm run dev
 curl -X POST http://localhost:8000/api/demo/generate
 ```
 
+**Changing the ports.** The backend port defaults to `8000` but honours a `PORT`
+env var (`PORT=8001 python scripts/run.py`). To keep the frontend's `/api` proxy
+pointed at it, start Vite with a matching `VITE_API_PORT` (`VITE_API_PORT=8001 npm
+run dev`). Useful when something else already owns `8000`.
+
 ---
 
 ## 11. Testing
 
 ```bash
-cd backend && python -m pytest -q     # 22 passing
+cd backend && python -m pytest -q     # 26 passing
 ```
-- `test_ingestion.py` — parser registry, normalizer, dedup, internal-transfer detection
-- `test_api.py` — API integration tests (in-memory SQLite)
+- `test_ingestion.py` — parser registry, normalizer, dedup (incl. per-account row-hash), internal-transfer detection
+- `test_api.py` — API integration tests (in-memory SQLite), incl. accounts CRUD + account-tagged transactions
 
 `pytest.ini` adds `src/` to `pythonpath` automatically.
 
@@ -383,6 +431,7 @@ From the June 2026 data audit — these shape what the dashboard can show today:
 
 | Priority | Item |
 |---|---|
+| 🔴 P0 | Multi-account & multi-card — _in progress;_ data-model foundation shipped (Account entity, `account_id`, account-aware dedup, accounts API). Next: ingestion tagging, credit-card parsers, per-account analytics + selector UI |
 | 🔴 P0 | Bulk-categorize queue — clear the 72% uncategorized fast |
 | 🔴 P0 | Merchant normalization (collapse brand variants) |
 | 🟠 P1 | "Big purchases — identify these" strip for large one-offs |

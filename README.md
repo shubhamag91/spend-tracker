@@ -164,10 +164,17 @@ endpoints accept `mode=real|demo` and optional `start_date` / `end_date`.
 | Analytics | `/analytics/wallet`, `/summary`, `/by-day` · `/by-week` · `/by-month` · `/by-year`, `/by-category`, `/weekly-velocity`, `/heatmap`, `/top-merchants`, `/recurring`, `/insights` |
 | Transactions | `GET /transactions`, `PATCH /transactions/{id}/category`, `DELETE /transactions/{id}` |
 | Categories | `GET·POST /categories`, `PATCH·DELETE /categories/{id}` |
+| Accounts | `GET·POST /accounts`, `PATCH·DELETE /accounts/{id}` (bank / card sources — see note below) |
 | Upload / Demo | `POST /upload`, `POST /demo/generate`, `DELETE /demo/clear` |
 | Health | `GET /health` |
 
 Full reference in [§6 of the docs](docs/DOCUMENTATION.md#6-api-reference).
+
+> 🚧 **Multi-account / multi-card** support is being introduced. The foundation has
+> shipped — an `Account` entity (bank or card), an `account_id` on every transaction,
+> account-aware dedup, and the `/api/accounts` API. Statement-to-account tagging,
+> credit-card parsers, per-account analytics, and the selector UI are next, so the
+> dashboard still shows one combined view for now.
 
 ## Key Design Decisions
 
@@ -181,7 +188,7 @@ Full reference in [§6 of the docs](docs/DOCUMENTATION.md#6-api-reference).
 
 **Amount always positive**: a `transaction_type` column (`debit`/`credit`) carries direction, avoiding signed-amount bugs in `SUM()` aggregations.
 
-**Two-level deduplication**: a file-level SHA-256 skips already-ingested files; a row-level SHA-256 (`date + amount + description`) UNIQUE constraint silently discards duplicates across overlapping exports.
+**Two-level deduplication**: a file-level SHA-256 skips already-ingested files; a row-level SHA-256 (`account_id + date + amount + description`) UNIQUE constraint silently discards duplicates across overlapping exports — while keeping the same charge seen in two different accounts as two distinct rows.
 
 **React Query keys include `mode`**: every key is `["analytics", "summary", mode, range]`, so toggling demo mode invalidates and refetches all data automatically.
 

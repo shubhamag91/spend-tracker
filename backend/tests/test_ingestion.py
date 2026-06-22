@@ -101,6 +101,20 @@ def test_row_hash_differs_for_different_data():
     assert h1 != h2
 
 
+def test_row_hash_differs_across_accounts():
+    # Same date/amount/description in two different accounts must NOT collide,
+    # otherwise one account's transaction silently eats the other's.
+    h_acct1 = row_hash("2025-05-01", 200.0, "SWIGGY ORDER", account_id=1)
+    h_acct2 = row_hash("2025-05-01", 200.0, "SWIGGY ORDER", account_id=2)
+    assert h_acct1 != h_acct2
+
+
+def test_row_hash_same_account_still_dedups():
+    h1 = row_hash("2025-05-01", 200.0, "SWIGGY ORDER", account_id=1)
+    h2 = row_hash("2025-05-01", 200.0, "SWIGGY ORDER", account_id=1)
+    assert h1 == h2
+
+
 NAMES = ["YOURNAME"]
 
 

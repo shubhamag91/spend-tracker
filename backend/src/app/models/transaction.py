@@ -16,6 +16,7 @@ class Transaction(Base):
     description: Mapped[str] = mapped_column(String, nullable=False)
     raw_description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     category_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
+    account_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
     source: Mapped[str] = mapped_column(String, nullable=False)
     data_mode: Mapped[str] = mapped_column(String, nullable=False, default="real")
     is_internal_transfer: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -26,10 +27,12 @@ class Transaction(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     category: Mapped[Optional[Category]] = relationship("Category", back_populates="transactions")
+    account: Mapped[Optional["Account"]] = relationship("Account", back_populates="transactions")
 
     __table_args__ = (
         Index("idx_transactions_date_mode", "date", "data_mode"),
         Index("idx_transactions_category", "category_id"),
+        Index("idx_transactions_account", "account_id"),
     )
 
 

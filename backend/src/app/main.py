@@ -5,8 +5,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import engine, SessionLocal, Base
-from app.models import Category, Transaction, IngestLog  # noqa: F401 — ensures models are registered
-from app.api import categories, transactions, analytics, uploads, demo
+from app.models import Account, Category, Transaction, IngestLog  # noqa: F401 — ensures models are registered
+from app.migrations import run_migrations
+from app.api import accounts, categories, transactions, analytics, uploads, demo
 from app.categorization.rules import DEFAULT_CATEGORIES
 from app.watcher.file_watcher import start_watcher
 
@@ -27,6 +28,7 @@ def _seed_categories(db):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    run_migrations(engine)
     db = SessionLocal()
     try:
         _seed_categories(db)
@@ -46,6 +48,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(accounts.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
 app.include_router(transactions.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")

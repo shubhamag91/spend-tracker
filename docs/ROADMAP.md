@@ -9,6 +9,7 @@
 
 | Priority | Item |
 |---|---|
+| 🔴 P0 | **Multi-account & multi-card** `[~]` — track multiple banks + credit cards in one dashboard (see the section below for the phase breakdown) |
 | 🔴 P0 | **Bulk-categorize queue** — clear the ~72% uncategorized fast |
 | 🔴 P0 | **Merchant normalization** — collapse brand variants (`SWIGGY` / `SWIGGY LTD` / `SWIGGY INSTAMART` → one merchant) |
 | 🟠 P1 | **"Big purchases" strip** — surface large one-off payments that need a human label |
@@ -70,11 +71,27 @@ Core ingestion, categorization, and visualization.
 - [ ] **Month-over-month change badges** — "+12% vs last month" on KPI cards
 
 ### Multi-account & multi-bank
-- [x] **Inter-account transfer detection** — shipped as `is_internal_transfer` (self-transfers)
-- [ ] **Account model** — link each imported file to a named account
-- [ ] **Account selector** — filter all views by account
+
+**Status: `[~]` in progress.** Goal: track **multiple bank accounts + multiple credit cards** in one combined
+dashboard, with the option to drill into a single account. Credit cards are modelled
+as full per-merchant spends, while the bank→card bill-payment that settles them is
+reclassified as an internal transfer (so spend is never double-counted).
+
+**Phase 1 — data-model foundation** ✅ _shipped_
+- [x] **Account model** — `accounts` table (`name · type bank|card · issuer · last4`) + CRUD at `/api/accounts`
+- [x] **`account_id` on every transaction** — FK (`ON DELETE SET NULL`), exposed in the transactions API
+- [x] **Account-aware deduplication** — `account_id` folded into the row-hash so identical charges in different accounts don't collide
+- [x] **In-place schema migration** — `app/migrations.py` adds new columns to existing SQLite DBs without data loss
+
+**Phase 2+ — remaining**
+- [ ] **Statement tagging at ingestion** — pick/name the account on upload; per-account watched sub-folders
+- [ ] **Credit-card statement parsers** — verify/extend parsing for card-issuer exports
+- [ ] **Reclassification & wallet math** — bank↔card and bank↔bank moves become transfers; redefined spend = card charges + direct bank debits
+- [ ] **Per-account analytics** — `account_id` filter across all endpoints
+- [ ] **Account selector UI** — combined view + drill-into-one-account filter
+- [x] **Inter-account transfer detection** — shipped as `is_internal_transfer` (self-transfers); to be made account-precise in Phase 2+
 - [ ] **Cross-account net-worth snapshot** — needs balance data in statements
-- [ ] **New bank parsers** — Axis, Kotak, SBI, Yes Bank, Paytm, PhonePe
+- [ ] **New bank parsers** — Axis, Kotak, SBI, Yes Bank, Paytm, PhonePe (Yes Bank PDF currently parses via the generic PDF parser)
 
 ### Data export & sharing
 - [ ] **CSV export** — download filtered transactions

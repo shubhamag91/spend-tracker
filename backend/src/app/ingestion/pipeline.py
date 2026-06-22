@@ -6,7 +6,9 @@ from app.models.transaction import IngestLog
 from app.utils.dedup import file_hash as compute_file_hash
 
 
-def run_ingestion(filepath: str, db: Session, data_mode: str = "real") -> IngestLog:
+def run_ingestion(
+    filepath: str, db: Session, data_mode: str = "real", account_id: int | None = None
+) -> IngestLog:
     """Main entry point for ingesting a CSV or PDF file."""
     filename = Path(filepath).name
     fhash = compute_file_hash(filepath)
@@ -31,7 +33,7 @@ def run_ingestion(filepath: str, db: Session, data_mode: str = "real") -> Ingest
         raw_txns = parser.parse(filepath)
         log.rows_parsed = len(raw_txns)
 
-        inserted, skipped = normalize_and_insert(raw_txns, db, fhash, data_mode)
+        inserted, skipped = normalize_and_insert(raw_txns, db, fhash, data_mode, account_id)
         log.rows_inserted = inserted
         log.rows_skipped = skipped
         log.status = "success"

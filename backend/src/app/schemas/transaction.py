@@ -12,6 +12,14 @@ class CategoryRef(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AccountRef(BaseModel):
+    id: int
+    name: str
+    type: str
+
+    model_config = {"from_attributes": True}
+
+
 class TransactionOut(BaseModel):
     id: int
     date: date
@@ -25,6 +33,7 @@ class TransactionOut(BaseModel):
     is_card_payment: bool = False
     created_at: datetime
     category: Optional[CategoryRef] = None
+    account: Optional[AccountRef] = None
 
     model_config = {"from_attributes": True}
 

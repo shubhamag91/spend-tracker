@@ -13,13 +13,14 @@ def normalize_and_insert(
     db: Session,
     file_hash: str,
     data_mode: str = "real",
+    account_id: int | None = None,
 ) -> tuple[int, int]:
     """Insert normalized transactions. Returns (inserted, skipped)."""
     inserted = 0
     skipped = 0
 
     for raw in raw_txns:
-        rh = compute_row_hash(str(raw.date), raw.amount, raw.description)
+        rh = compute_row_hash(str(raw.date), raw.amount, raw.description, account_id)
 
         # Check for existing row_hash to detect duplicate
         existing = db.query(Transaction).filter(Transaction.row_hash == rh).first()
@@ -41,6 +42,7 @@ def normalize_and_insert(
             description=raw.description.strip(),
             raw_description=raw.description,
             category_id=category_id,
+            account_id=account_id,
             source=raw.source,
             data_mode=data_mode,
             is_internal_transfer=internal,

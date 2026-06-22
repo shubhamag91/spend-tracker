@@ -144,3 +144,59 @@ def test_demo_generate_and_clear(client):
 
     r4 = client.get("/api/transactions?mode=demo&page_size=1")
     assert r4.json()["total"] == 0
+
+
+def test_accounts_crud(client):
+    # empty to start
+    assert client.get("/api/accounts").json() == []
+
+    # create a bank and a card
+    r = client.post("/api/accounts", json={"name": "HDFC Savings", "type": "bank", "issuer": "HDFC", "last4": "1934"})
+    assert r.status_code == 201
+    bank = r.json()
+    assert bank["name"] == "HDFC Savings" and bank["type"] == "bank" and bank["last4"] == "1934"
+
+    r = client.post("/api/accounts", json={"name": "Amex Card", "type": "card"})
+    assert r.status_code == 201
+
+    # list shows both
+    accts = client.get("/api/accounts").json()
+    assert len(accts) == 2
+
+    # duplicate name rejected
+    assert client.post("/api/accounts", json={"name": "HDFC Savings"}).status_code == 409
+
+    # invalid type rejected
+    assert client.post("/api/accounts", json={"name": "X", "type": "wallet"}).status_code == 422
+
+    # update
+    r = client.patch(f"/api/accounts/{bank['id']}", json={"name": "HDFC Salary"})
+    assert r.status_code == 200 and r.json()["name"] == "HDFC Salary"
+
+    # delete
+    assert client.delete(f"/api/accounts/{bank['id']}").status_code == 204
+    assert len(client.get("/api/accounts").json()) == 1
+
+
+def test_transaction_carries_account(client):
+    from datetime import date
+    from app.models.account import Account
+    db = TestingSession()
+    acct = Account(name="Yes Bank", type="bank")
+    db.add(acct)
+    db.commit()
+    db.refresh(acct)
+    acct_id = acct.id
+    db.add(Transaction(
+        date=date(2025, 5, 1), amount=200.0, transaction_type="debit",
+        description="SWIGGY", source="test", data_mode="real",
+        row_hash="acct_hash_1", account_id=acct_id,
+    ))
+    db.commit()
+    db.close()
+
+    items = client.get("/api/transactions?mode=real&page_size=10").json()["items"]
+    tagged = [t for t in items if t["account"] is not None]
+    assert len(tagged) == 1
+    assert tagged[0]["account"]["name"] == "Yes Bank"
+    assert tagged[0]["account"]["type"] == "bank"
