@@ -40,8 +40,10 @@ toggle for sharing without exposing real finances.
 - **Manual upload**: Drag-and-drop upload from the dashboard UI
 - **Multi-bank support**: HDFC, ICICI, and a generic CSV fallback via a registry pattern; PDF (pdfplumber) and Excel (openpyxl/xlrd) parsers
 - **Smart classification**: Auto-detects internal transfers (self top-ups) and investments (Grip, Zerodha, Groww, SIPs…) and keeps them out of "spend"
+- **Cross-account transfer detection**: Moves between two of your own accounts are matched (debit↔credit) and excluded from spend & income
 - **Auto-categorization**: Editable keyword rules assign categories (Food, Transport, Groceries…)
-- **Analytics**: Wallet breakdown, category spend, weekly velocity, day-of-week heatmap, top merchants, recurring detection, and plain-English insights
+- **Analytics**: Wallet breakdown, category spend, weekly velocity, day-of-week heatmap, top merchants, merchant-normalized recurring detection, and plain-English insights
+- **Sortable transactions**: Sort the transactions table by date or amount
 - **Date filtering**: This Month / Last Month / Last 30 Days / This Year / All Time + a custom range clamped to your data
 - **Demo mode**: Toggle between your real data and synthetic demo data — perfect for resume/portfolio sharing
 - **Deduplication**: Re-importing the same file is safe — file-level and row-level SHA-256 guards prevent duplicates
@@ -162,7 +164,7 @@ endpoints accept `mode=real|demo` and optional `start_date` / `end_date`.
 | Group | Endpoints |
 |---|---|
 | Analytics | `/analytics/wallet`, `/summary`, `/by-day` · `/by-week` · `/by-month` · `/by-year`, `/by-category`, `/weekly-velocity`, `/heatmap`, `/top-merchants`, `/recurring`, `/insights` |
-| Transactions | `GET /transactions`, `PATCH /transactions/{id}/category`, `DELETE /transactions/{id}` |
+| Transactions | `GET /transactions` (filters + `sort_by`/`sort_dir`), `POST /transactions/reconcile-transfers`, `PATCH /transactions/{id}/category`, `DELETE /transactions/{id}` |
 | Categories | `GET·POST /categories`, `PATCH·DELETE /categories/{id}` |
 | Accounts | `GET·POST /accounts`, `PATCH·DELETE /accounts/{id}` (bank / card sources — see note below) |
 | Upload / Demo | `POST /upload`, `POST /demo/generate`, `DELETE /demo/clear` |
@@ -170,11 +172,12 @@ endpoints accept `mode=real|demo` and optional `start_date` / `end_date`.
 
 Full reference in [§6 of the docs](docs/DOCUMENTATION.md#6-api-reference).
 
-> 🚧 **Multi-account / multi-card** support is being introduced. The foundation has
-> shipped — an `Account` entity (bank or card), an `account_id` on every transaction,
-> account-aware dedup, and the `/api/accounts` API. Statement-to-account tagging,
-> credit-card parsers, per-account analytics, and the selector UI are next, so the
-> dashboard still shows one combined view for now.
+> 🚧 **Multi-account / multi-card** support is being introduced. Shipped — an
+> `Account` entity (bank or card), an `account_id` on every transaction,
+> account-aware dedup, the `/api/accounts` API, and cross-account transfer matching
+> (moves between your own accounts are excluded from spend/income). Next: an
+> upload-time account picker, credit-card parsers, per-account analytics, and the
+> selector UI — so the dashboard still shows one combined view for now.
 
 ## Key Design Decisions
 

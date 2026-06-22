@@ -11,7 +11,7 @@
 |---|---|
 | 🔴 P0 | **Multi-account & multi-card** `[~]` — track multiple banks + credit cards in one dashboard (see the section below for the phase breakdown) |
 | 🔴 P0 | **Bulk-categorize queue** — clear the ~72% uncategorized fast |
-| 🔴 P0 | **Merchant normalization** — collapse brand variants (`SWIGGY` / `SWIGGY LTD` / `SWIGGY INSTAMART` → one merchant) |
+| 🔴 P0 | **Merchant normalization** `[~]` — `normalize_merchant` collapses payee variants for recurring detection; extend to top-merchants + category rollups |
 | 🟠 P1 | **"Big purchases" strip** — surface large one-off payments that need a human label |
 | 🟠 P1 | **Committed-monthly-outflow** number — subscriptions + SIPs |
 | 🟢 | **Replace Income page with a Wallet view** (see note under Shipped) |
@@ -59,6 +59,13 @@ Core ingestion, categorization, and visualization.
 > these income/savings metrics are largely not meaningful (real income lands in the
 > salary account). It is slated to be **replaced by a Wallet view** — see Now & Next.
 
+### Multi-account foundation & dashboard features ✅
+
+- [x] **Account model + account-aware dedup + `/api/accounts`** (Phase 1 — see Multi-account section)
+- [x] **Cross-account transfer matching** — debit↔credit pairing across accounts, excluded from spend/income
+- [x] **Recurring detection rewrite** — group by `normalize_merchant` so reference-numbered payees stop fragmenting; inferred weekly/monthly/quarterly cadence
+- [x] **Sort transactions by amount** — `sort_by`/`sort_dir` on the API + clickable Date/Amount column headers
+
 ---
 
 ## Later
@@ -84,12 +91,13 @@ reclassified as an internal transfer (so spend is never double-counted).
 - [x] **In-place schema migration** — `app/migrations.py` adds new columns to existing SQLite DBs without data loss
 
 **Phase 2+ — remaining**
-- [ ] **Statement tagging at ingestion** — pick/name the account on upload; per-account watched sub-folders
+- [x] **Cross-account (bank↔bank) transfer matching** — `reconcile_internal_transfers` pairs a debit in one account with the matching credit in another and excludes both from spend/income; runs after ingestion + `POST /transactions/reconcile-transfers`
+- [~] **Statement tagging** — account tagging works at import time (`account_id` threaded through ingestion); upload-time picker UI + per-account watched sub-folders still to do
 - [ ] **Credit-card statement parsers** — verify/extend parsing for card-issuer exports
-- [ ] **Reclassification & wallet math** — bank↔card and bank↔bank moves become transfers; redefined spend = card charges + direct bank debits
+- [ ] **Bank↔card reclassification & wallet math** — card bill-payments become transfers; redefined spend = card charges + direct bank debits
 - [ ] **Per-account analytics** — `account_id` filter across all endpoints
 - [ ] **Account selector UI** — combined view + drill-into-one-account filter
-- [x] **Inter-account transfer detection** — shipped as `is_internal_transfer` (self-transfers); to be made account-precise in Phase 2+
+- [x] **Inter-account transfer detection** — name-based `is_internal_transfer` for single statements; superseded by cross-account matching above for tagged data
 - [ ] **Cross-account net-worth snapshot** — needs balance data in statements
 - [ ] **New bank parsers** — Axis, Kotak, SBI, Yes Bank, Paytm, PhonePe (Yes Bank PDF currently parses via the generic PDF parser)
 

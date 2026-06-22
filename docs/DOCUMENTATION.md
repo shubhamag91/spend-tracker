@@ -5,13 +5,15 @@ _Last updated: June 2026 · single canonical reference_
 The complete guide to Spend Tracker — the mental model, every screen, the full
 API, backend internals, and how each number is computed.
 
-> **🚧 Multi-account / multi-card support is being introduced.** The data-model
-> foundation has shipped — an `Account` entity (bank or card), an `account_id` on
-> every transaction, account-aware deduplication, and an `/api/accounts` CRUD API
-> (§6, §8). Still in progress: tagging each imported statement to an account,
+> **🚧 Multi-account / multi-card support is being introduced.** Shipped so far: an
+> `Account` entity (bank or card), an `account_id` on every transaction,
+> account-aware deduplication, the `/api/accounts` CRUD API (§6, §8), and
+> **cross-account transfer detection** — moves between two of your own accounts are
+> matched and excluded from spend/income (§4.1). Still in progress: an upload-time
+> account picker (tagging is currently done at import time, not yet in the UI),
 > per-account analytics filtering, the account-selector UI, and credit-card
-> statement parsers. Until those land, the dashboard still presents a single
-> combined view. See the [ROADMAP](ROADMAP.md#multi-account--multi-bank).
+> statement parsers. Until those land, the dashboard presents a single combined
+> view. See the [ROADMAP](ROADMAP.md#multi-account--multi-bank).
 
 ## Table of contents
 1. [Overview](#1-overview)
@@ -142,14 +144,29 @@ Every transaction carries two auto-detected boolean flags, set on import and
 back-fillable on existing data.
 
 ### 4.1 `is_internal_transfer` — top-ups & self-transfers
-A credit is an internal transfer when the counterparty is **you** (your own name
-appears right after a transfer reference).
+Money moved between your own accounts is neither spend nor income. Two detectors
+set this flag:
+
+**a) Cross-account matching (precise).** For transactions tagged to an account,
+`reconcile_internal_transfers` pairs a *debit* in one account with the matching
+*credit* in another (same amount, within 3 days) and flags **both** sides — e.g. a
+₹10,00,000 debit in HDFC matched to a ₹10,00,000 credit in Yes Bank the same day.
+Runs after every ingestion and on demand via `POST /api/transactions/reconcile-transfers`.
+This is the reliable signal once you have ≥2 accounts: an incoming salary/vendor
+payment has **no matching debit**, so it is correctly kept as income rather than
+mistaken for a self-transfer.
+Detector: `backend/src/app/utils/interbank.py`.
+
+**b) Name-based (single statement).** When only one account is in play, a credit is
+a self-transfer when your own name appears right after a transfer reference:
 
 - ✅ `IMPS-000000000000-YOURNAME-UTIB-…` → top-up (your own money)
 - ❌ `NEFT CR-…-EXAMPLE CORP-YOURNAM` → real income (you're only the beneficiary)
 
 Detector: `backend/src/app/utils/transfers.py` · names in `config.py` → `account_holder_names`
-(set these to your own name(s) — see `config/.env.example`)
+(set these to your own name(s) — see `config/.env.example`). Note: for
+account-tagged data, the cross-account matcher recomputes this flag, replacing the
+name-based guess and avoiding its false positives on incoming payments.
 
 ### 4.2 `is_investment` — wealth, not spend
 A debit is an investment when it goes to a broking/MF/SIP platform.
@@ -184,10 +201,11 @@ page collapses to a single empty state — no empty tabs.
 - **Date control** — preset pills + a Custom Range picker pre-filled with and clamped to your real data bounds.
 
 ### 5.2 Transactions (`/transactions`)
-The source of truth — filterable, paginated table of every transaction.
+The source of truth — filterable, sortable, paginated table of every transaction.
 - Filter by date range, category, type (debit/credit).
+- **Sort** by clicking the Date or Amount column header (toggles asc/desc).
 - Inline category change per row.
-- Internal transfers badged `↔ Internal` with a muted amount.
+- Internal transfers (including matched inter-account transfers) badged `↔ Internal` with a muted amount.
 
 ### 5.3 Income (`/income`)
 > ⚠️ Built for variable/freelance income (stability score, expected-vs-actual,
@@ -218,7 +236,7 @@ endpoints accept `mode=real|demo` and optional `start_date` / `end_date` (ISO).
 | `GET /weekly-velocity` | Per-week spend + week-over-week % change |
 | `GET /heatmap` | Avg spend by day-of-week × week-of-month |
 | `GET /top-merchants` | Top payees by spend, with count + avg/txn |
-| `GET /recurring` | Auto-detected recurring payments + next-due estimate |
+| `GET /recurring` | Recurring payments grouped by **normalized merchant** (ref numbers stripped), with inferred cadence (weekly/monthly/quarterly) + next-due estimate |
 | `GET /income-monthly` · `/income-sources` · `/savings-trajectory` | Income views (see §5.3 caveat) |
 | `GET /insights` | Plain-English spending insights |
 
@@ -228,7 +246,8 @@ endpoints accept `mode=real|demo` and optional `start_date` / `end_date` (ISO).
 ### Transactions — `/api/transactions`
 | Endpoint | Purpose |
 |---|---|
-| `GET ""` | Paginated list; filters: `mode`, `start_date`, `end_date`, `category_id`, `transaction_type`, `page`, `page_size` |
+| `GET ""` | Paginated list; filters: `mode`, `start_date`, `end_date`, `category_id`, `transaction_type`, `page`, `page_size`; sort: `sort_by` (`date`\|`amount`), `sort_dir` (`asc`\|`desc`) |
+| `POST /reconcile-transfers` | (Re)detect transfers between your own accounts and flag both sides; returns the matched pairs (§4.1) |
 | `PATCH /{id}/category` | Re-assign a transaction's category |
 | `DELETE /{id}` | Delete a transaction |
 
@@ -274,10 +293,21 @@ File (CSV/XLS/XLSX)
    → Categorizer       (keyword match → category_id)
    → Dedup guard       (SHA-256 row hash UNIQUE, scoped per account)
    → SQLite
+   → Reconcile         (re-pair cross-account transfers; §4.1)
 ```
 Entry points: the file watcher and the upload API both funnel into the same
 pipeline. `run_ingestion(...)` and `normalize_and_insert(...)` accept an optional
 `account_id` that is stamped on every inserted row and folded into its dedup hash.
+After a successful insert the pipeline calls `reconcile_internal_transfers` so
+newly-imported rows are matched against existing ones across accounts.
+
+### Merchant normalization
+`app/utils/merchant.py::normalize_merchant` reduces a noisy description
+(`UPI-CRED CLUB-CRED.CLUB@AXISB-UTIB0000114-645902607640-PAYMENT ON CRED`) to a
+stable payee key (`CRED CLUB`) by stripping transaction-type prefixes, IFSC codes,
+VPA handles, reference numbers, and trailing notes. The `/analytics/recurring`
+endpoint groups on this key, so the same payee with a different reference each time
+collapses into one recurring entry instead of fragmenting.
 
 ### Parser registry & adding a bank
 Each parser implements `can_parse(filepath, headers)` and `parse(filepath)`
@@ -396,7 +426,7 @@ run dev`). Useful when something else already owns `8000`.
 ## 11. Testing
 
 ```bash
-cd backend && python -m pytest -q     # 26 passing
+cd backend && python -m pytest -q     # 32 passing
 ```
 - `test_ingestion.py` — parser registry, normalizer, dedup (incl. per-account row-hash), internal-transfer detection
 - `test_api.py` — API integration tests (in-memory SQLite), incl. accounts CRUD + account-tagged transactions
@@ -409,6 +439,7 @@ cd backend && python -m pytest -q     # 26 passing
 
 - **Wallet model over income model** — loaded/invested/spent buckets, not income/savings (§2).
 - **Classification flags** — `is_internal_transfer` and `is_investment` keep top-ups and wealth out of "spend" (§4).
+- **Transfers detected by matching, not just by name** — once data is account-tagged, a self-transfer is identified by a debit↔credit pair across two accounts, which is more precise than name-matching and avoids flagging incoming payments as transfers (§4.1).
 - **Parser registry pattern** — bank logic is isolated; the registry is the only place that knows which parsers exist.
 - **Amount always positive** — `transaction_type` carries direction; avoids signed-amount bugs in `SUM()`.
 - **`data_mode` everywhere** — real and demo coexist in one DB; switching is a single `WHERE`; server stays stateless.
@@ -421,7 +452,7 @@ cd backend && python -m pytest -q     # 26 passing
 
 From the June 2026 data audit — these shape what the dashboard can show today:
 1. **~72% of spend is Uncategorized** — the keyword categorizer only catches big brands; most Indian UPI spend (individuals, local merchants) falls through. → planned: bulk-categorize queue.
-2. **Merchant fragmentation** — `SWIGGY / SWIGGY LTD / SWIGGY LIMITED / SWIGGY INSTAMART` count as four merchants, hiding the true total. → planned: merchant normalization.
+2. **Merchant fragmentation** — `SWIGGY / SWIGGY LTD / SWIGGY LIMITED / SWIGGY INSTAMART` count as four merchants, hiding the true total. → *partially addressed:* `/analytics/recurring` now groups by `normalize_merchant` (§7); the same normalization is not yet applied to `/top-merchants` or category rollups.
 3. **Large one-off merchant payments** (e.g. a single ~₹35k merchant charge) need a human label — the data can't tell what was bought.
 4. **Income page** metrics aren't meaningful for this account type (§5.3).
 
