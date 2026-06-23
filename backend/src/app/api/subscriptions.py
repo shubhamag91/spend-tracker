@@ -36,8 +36,13 @@ def create_rule(body: SubscriptionRuleCreate, db: Session = Depends(get_db)):
     _validate_freq(body.frequency)
     if not name or not keyword:
         raise HTTPException(status_code=422, detail="Name and keyword are required")
-    if db.query(SubscriptionRule).filter(SubscriptionRule.keyword == keyword).first():
-        raise HTTPException(status_code=409, detail="That keyword already exists")
+    # the same merchant string can host several bills, distinguished by min_amount;
+    # only reject an exact duplicate (same keyword AND same amount floor)
+    dup = db.query(SubscriptionRule).filter(SubscriptionRule.keyword == keyword)
+    dup = dup.filter(SubscriptionRule.min_amount.is_(None) if body.min_amount is None
+                     else SubscriptionRule.min_amount == body.min_amount)
+    if dup.first():
+        raise HTTPException(status_code=409, detail="That keyword + amount rule already exists")
     rule = SubscriptionRule(name=name, keyword=keyword, type=type_,
                             frequency=body.frequency, min_amount=body.min_amount)
     db.add(rule)

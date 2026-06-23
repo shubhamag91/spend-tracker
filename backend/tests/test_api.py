@@ -439,3 +439,30 @@ def test_subscription_min_amount_disambiguates(client):
     assert s["service_count"] == 1
     item = s["items"][0]
     assert item["count"] == 1 and item["amount"] == 5200.0 and item["monthly"] == 5200.0
+
+
+def test_two_rules_same_merchant_split_by_amount(client):
+    from datetime import date
+    # same merchant string hosts two different bills, split by amount floor
+    client.post("/api/subscription-rules", json={
+        "name": "Parents electricity", "keyword": "airtel payments bank",
+        "type": "Electricity", "frequency": "monthly", "min_amount": 1000})
+    r2 = client.post("/api/subscription-rules", json={
+        "name": "Phone", "keyword": "airtel payments bank", "type": "Phone", "frequency": "monthly"})
+    assert r2.status_code == 201  # same keyword, different floor -> allowed now
+    # exact duplicate (same keyword + same floor) still rejected
+    assert client.post("/api/subscription-rules", json={
+        "name": "Phone dup", "keyword": "airtel payments bank", "type": "Phone"}).status_code == 409
+
+    db = TestingSession()
+    db.add_all([
+        Transaction(date=date(2025, 5, 16), amount=5200.0, transaction_type="debit",
+                    description="AIRTEL PAYMENTS BANK UTILITIES", source="t", data_mode="real", row_hash="x1"),
+        Transaction(date=date(2025, 5, 14), amount=111.0, transaction_type="debit",
+                    description="AIRTEL PAYMENTS BANK UTILITIES", source="t", data_mode="real", row_hash="x2"),
+    ])
+    db.commit(); db.close()
+
+    items = {it["type"]: it for it in client.get("/api/subscriptions/summary?mode=real").json()["items"]}
+    assert items["Electricity"]["amount"] == 5200.0 and items["Electricity"]["count"] == 1
+    assert items["Phone"]["amount"] == 111.0 and items["Phone"]["count"] == 1
