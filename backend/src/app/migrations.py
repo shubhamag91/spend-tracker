@@ -17,6 +17,7 @@ _ADDITIVE_COLUMNS = [
     ("subscription_rules", "frequency", "TEXT NOT NULL DEFAULT 'monthly'"),
     ("subscription_rules", "min_amount", "REAL"),
     ("subscription_rules", "monthly_amount", "REAL"),
+    ("investment_rules", "label", "TEXT"),
 ]
 
 

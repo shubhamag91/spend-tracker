@@ -308,7 +308,7 @@ account; omit for the combined view), and optional `start_date` / `end_date` (IS
 ### Investments — `/api/investment-rules` · `/api/investments`
 | Endpoint | Purpose |
 |---|---|
-| `GET /investment-rules` · `POST` · `DELETE /{id}` | Manage payee keywords; creating one re-tags matching bank transactions |
+| `GET /investment-rules` · `POST` · `DELETE /{id}` | Manage payee keywords (+ optional display `label`, e.g. keyword `INGENICO` → label `Grip`); creating one re-tags matching bank transactions |
 | `POST /investment-rules/apply` | Re-apply all rules to existing bank transactions (flag ON only) |
 | `GET /investments/summary` | Total invested + count + by-platform breakdown (optional `account_id`) |
 
@@ -457,7 +457,7 @@ Indexes: `(date, data_mode)`, `(category_id)`, `(account_id)`.
 
 **`accounts`** — `id · name (unique) · type` (`bank`/`card`) `· issuer · last4 · created_at`
 **`categories`** — `id · name · color · keywords_json`
-**`investment_rules`** — `id · keyword (unique) · created_at` (user-defined investment payees, §4.2)
+**`investment_rules`** — `id · keyword (unique) · label · created_at` (user-defined investment payees, §4.2)
 **`subscription_rules`** — `id · name · keyword · type · frequency · min_amount · monthly_amount · created_at` (tracked fixed-spend items, §5.6; keyword is **not** unique — a merchant can host several bills split by `min_amount`)
 **`ingest_log`** — `id · filename · file_hash · parser_used · rows_parsed/inserted/skipped · status · error_message · ingested_at`
 
@@ -513,7 +513,7 @@ run dev`). Useful when something else already owns `8000`.
 ## 11. Testing
 
 ```bash
-cd backend && python -m pytest -q     # 42 passing
+cd backend && python -m pytest -q     # 43 passing
 ```
 - `test_ingestion.py` — parser registry, normalizer, dedup (incl. per-account row-hash), internal-transfer detection
 - `test_api.py` — API integration tests (in-memory SQLite), incl. accounts CRUD + account-tagged transactions

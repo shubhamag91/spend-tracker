@@ -60,7 +60,7 @@ def create_rule(body: InvestmentRuleCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=422, detail="Keyword cannot be empty")
     if db.query(InvestmentRule).filter(InvestmentRule.keyword == keyword).first():
         raise HTTPException(status_code=409, detail="That keyword already exists")
-    rule = InvestmentRule(keyword=keyword)
+    rule = InvestmentRule(keyword=keyword, label=(body.label or None) and body.label.strip())
     db.add(rule)
     db.commit()
     db.refresh(rule)
@@ -102,16 +102,21 @@ def investments_summary(
         q = q.filter(Transaction.account_id == account_id)
     txns = q.all()
 
-    # Group by the matched investment keyword (LENDBOX, INGENICO, INDIAN CLEARING…)
-    # so a platform's transactions roll up cleanly; fall back to the normalized
-    # merchant for manually-tagged rows that match no keyword.
-    keywords = [k.upper() for k in investment_keywords(db)]
+    # Group by platform. Each keyword maps to a display label — a rule's own label
+    # if set (e.g. "INGENICO" → "Grip", since Grip routes through Ingenico), else the
+    # keyword title-cased. Config keywords use their title-case. Unmatched (manually
+    # tagged) rows fall back to the normalized merchant.
+    label_for_keyword: dict[str, str] = {k.upper(): k.title() for k in investment_keywords(db)}
+    for r in db.query(InvestmentRule).all():
+        if r.label:
+            label_for_keyword[r.keyword.upper()] = r.label
+    keywords = list(label_for_keyword.keys())
 
     def platform_for(desc: str) -> str:
         up = (desc or "").upper()
         for k in keywords:
             if k in up:
-                return k.title()
+                return label_for_keyword[k]
         return normalize_merchant(desc)
 
     groups: dict[str, list[float]] = collections.defaultdict(list)

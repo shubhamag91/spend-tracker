@@ -33,8 +33,8 @@ function invalidateAll(qc: ReturnType<typeof useQueryClient>) {
 export function useCreateInvestmentRule() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (keyword: string) =>
-      client.post('/investment-rules', { keyword }).then((r) => r.data),
+    mutationFn: (body: { keyword: string; label?: string }) =>
+      client.post('/investment-rules', body).then((r) => r.data),
     onSuccess: () => invalidateAll(qc),
   });
 }

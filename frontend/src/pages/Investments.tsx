@@ -18,6 +18,7 @@ export default function Investments() {
   const deleteRule = useDeleteInvestmentRule();
   const setInvestment = useSetInvestment();
   const [keyword, setKeyword] = useState('');
+  const [label, setLabel] = useState('');
   const [page, setPage] = useState(1);
 
   const { data: txns } = useTransactions({
@@ -29,7 +30,10 @@ export default function Investments() {
     e.preventDefault();
     const k = keyword.trim();
     if (!k) return;
-    createRule.mutate(k, { onSuccess: () => setKeyword('') });
+    createRule.mutate(
+      { keyword: k, label: label.trim() || undefined },
+      { onSuccess: () => { setKeyword(''); setLabel(''); } },
+    );
   }
 
   if (isLoading) {
@@ -125,13 +129,19 @@ export default function Investments() {
         {/* Right: rules manager */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 h-fit">
           <h2 className="font-semibold text-slate-800">Investment payee rules</h2>
-          <p className="text-xs text-slate-400 mt-0.5 mb-3">Any bank transaction whose description contains one of these keywords is counted as an investment, not spend — for existing and future imports.</p>
+          <p className="text-xs text-slate-400 mt-0.5 mb-3">Any bank transaction whose description contains a keyword is counted as an investment, not spend — for existing and future imports. The optional label is how the platform shows in the breakdown (e.g. keyword INGENICO → label Grip).</p>
           <form onSubmit={addRule} className="flex gap-2 mb-3">
             <input
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              placeholder="e.g. LENDBOX, ZERODHA"
-              className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+              placeholder="Keyword (e.g. LENDBOX)"
+              className="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+            />
+            <input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Label (optional)"
+              className="w-28 min-w-0 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
             />
             <button type="submit" disabled={createRule.isPending} className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50">Add</button>
           </form>
@@ -140,7 +150,7 @@ export default function Investments() {
             {(rules ?? []).length === 0 && <p className="text-sm text-slate-400">No rules yet.</p>}
             {(rules ?? []).map((r) => (
               <div key={r.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-1.5">
-                <span className="text-sm font-medium text-slate-700">{r.keyword}</span>
+                <span className="text-sm font-medium text-slate-700">{r.keyword}{r.label && <span className="text-xs text-slate-400 font-normal ml-1.5">→ {r.label}</span>}</span>
                 <button onClick={() => deleteRule.mutate(r.id)} className="text-slate-400 hover:text-red-600 text-sm" title="Remove rule (keeps existing tags)">&times;</button>
               </div>
             ))}

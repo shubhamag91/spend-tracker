@@ -137,6 +137,7 @@ export interface WalletSummary {
 export interface InvestmentRule {
   id: number;
   keyword: string;
+  label: string | null;
   created_at: string;
 }
 

@@ -489,3 +489,17 @@ def test_hdfc_card_strips_bogus_emi_prefix():
     desc = re.sub(r"\s+", " ", m.group(2)).strip().rstrip("+").strip()
     desc = re.sub(r"^EMI\s+", "", desc, flags=re.IGNORECASE)
     assert desc == "RADIUS SYNERGIES INTERNOIDA"
+
+
+def test_investment_rule_label_in_breakdown(client):
+    from datetime import date
+    # keyword INGENICO but the real platform is Grip -> label drives the breakdown
+    client.post("/api/investment-rules", json={"keyword": "ingenico", "label": "Grip"})
+    db = TestingSession()
+    db.add(Transaction(date=date(2025, 5, 1), amount=400000.0, transaction_type="debit",
+                       description="NET TXN/INGENICOTPV/839/INGENICO", source="t", data_mode="real",
+                       row_hash="g1", is_investment=True))
+    db.commit(); db.close()
+    s = client.get("/api/investments/summary?mode=real").json()
+    assert s["total_invested"] == 400000.0
+    assert s["by_platform"][0]["name"] == "Grip"
