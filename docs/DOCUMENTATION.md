@@ -251,13 +251,16 @@ spend). A **payee-rules** manager on the right lets you add keywords (e.g. `LEND
 Tagging an outflow as investment removes it from spend and adds it to the wallet's
 *Invested* bucket, so "spent" reflects real consumption.
 
-### 5.6 Subscriptions (`/subscriptions`)
-Tracks recurring services detected by **name** (not by recurrence, so even a
-once-seen sub shows). Lists your services grouped by **type** (OTT / AI / Music /
-Productivity / Cloud), each with its latest charge, and a tracked-services manager
-to add your own (display name + keyword + type). Ships with ~25 common services
-pre-loaded. Spans banks and cards. Subscriptions remain counted as spend — this is
-a reporting overlay, not a reclassification.
+### 5.6 Fixed Spends (`/subscriptions`)
+Your recurring monthly commitments — **rent, bills (electricity / internet / phone),
+EMIs, staff, and subscriptions** — detected by **name** (not by recurrence, so even a
+once-seen item shows). Lists them grouped by **type** (Rent / Electricity / Internet /
+OTT / AI / …) with a headline **per-month estimate** (sum of each item's latest
+charge), and a manager to add your own rule (display name + keyword + free-form
+type). Ships with ~25 common subscription services pre-loaded; add rent (your
+landlord's name as the keyword), utilities, EMIs, etc. yourself. Spans banks and
+cards. Everything here stays counted as spend — it's a reporting overlay, not a
+reclassification. (API + table are still named `subscription*` internally.)
 
 ---
 

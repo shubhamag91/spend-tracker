@@ -8,6 +8,16 @@ import { formatCurrency, formatDate } from '../utils/formatters';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
 
 const TYPE_COLORS: Record<string, string> = {
+  Rent: 'bg-purple-100 text-purple-700',
+  Electricity: 'bg-yellow-100 text-yellow-700',
+  Phone: 'bg-blue-100 text-blue-700',
+  Utilities: 'bg-cyan-100 text-cyan-700',
+  Insurance: 'bg-teal-100 text-teal-700',
+  EMI: 'bg-orange-100 text-orange-700',
+  Loan: 'bg-orange-100 text-orange-700',
+  Staff: 'bg-lime-100 text-lime-700',
+  Internet: 'bg-cyan-100 text-cyan-700',
+  Maintenance: 'bg-stone-100 text-stone-700',
   OTT: 'bg-rose-100 text-rose-700',
   AI: 'bg-indigo-100 text-indigo-700',
   Music: 'bg-emerald-100 text-emerald-700',
@@ -15,6 +25,9 @@ const TYPE_COLORS: Record<string, string> = {
   Cloud: 'bg-sky-100 text-sky-700',
   Other: 'bg-slate-100 text-slate-600',
 };
+
+// Suggested types for the input (free-form — you can type anything).
+const TYPE_SUGGESTIONS = ['Rent', 'Electricity', 'Internet', 'Phone', 'Utilities', 'Insurance', 'EMI', 'Loan', 'Staff', 'Maintenance', 'OTT', 'AI', 'Music', 'Productivity', 'Cloud', 'Other'];
 
 function typeClass(t: string) { return TYPE_COLORS[t] ?? TYPE_COLORS.Other; }
 
@@ -24,7 +37,7 @@ export default function Subscriptions() {
   const { data: rules } = useSubscriptionRules();
   const createRule = useCreateSubscriptionRule();
   const deleteRule = useDeleteSubscriptionRule();
-  const [form, setForm] = useState({ name: '', keyword: '', type: 'OTT' });
+  const [form, setForm] = useState({ name: '', keyword: '', type: 'Rent' });
 
   function addRule(e: React.FormEvent) {
     e.preventDefault();
@@ -44,22 +57,23 @@ export default function Subscriptions() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-slate-800">Subscriptions</h1>
-        <p className="text-sm text-slate-400 mt-0.5">Recurring services detected by name — OTT, AI, and more.</p>
+        <h1 className="text-xl font-bold text-slate-800">Fixed Spends</h1>
+        <p className="text-sm text-slate-400 mt-0.5">Your recurring monthly commitments — rent, bills, EMIs, subscriptions — detected by name.</p>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <p className="text-xs text-slate-400 uppercase tracking-wide">Services</p>
+          <p className="text-xs text-slate-400 uppercase tracking-wide">Per month (est.)</p>
+          <p className="text-2xl font-bold text-indigo-700 mt-1">{formatCurrency(summary?.monthly_estimate ?? 0)}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">sum of each item's latest charge</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <p className="text-xs text-slate-400 uppercase tracking-wide">Fixed charges</p>
           <p className="text-2xl font-bold text-slate-800 mt-1">{summary?.service_count ?? 0}</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <p className="text-xs text-slate-400 uppercase tracking-wide">Total in this period</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">{formatCurrency(summary?.total ?? 0)}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <p className="text-xs text-slate-400 uppercase tracking-wide">Types</p>
+          <p className="text-xs text-slate-400 uppercase tracking-wide">By type</p>
           <div className="flex flex-wrap gap-1.5 mt-2">
             {(summary?.by_type ?? []).map((b) => (
               <span key={b.type} className={`text-xs font-medium px-2 py-0.5 rounded-full ${typeClass(b.type)}`}>
@@ -74,11 +88,11 @@ export default function Subscriptions() {
         {/* Left: detected subscriptions */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-100">
-            <h2 className="font-semibold text-slate-800">Your subscriptions</h2>
+            <h2 className="font-semibold text-slate-800">Your fixed spends</h2>
           </div>
           {items.length === 0 ? (
             <div className="h-40 flex items-center justify-center text-slate-400 text-sm text-center px-6">
-              No subscriptions detected in this period. Add a service on the right if one's missing.
+              Nothing detected in this period. Add a rule on the right — e.g. your landlord's name as "Rent".
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -107,31 +121,34 @@ export default function Subscriptions() {
 
         {/* Right: rules manager */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 h-fit">
-          <h2 className="font-semibold text-slate-800">Tracked services</h2>
-          <p className="text-xs text-slate-400 mt-0.5 mb-3">Any transaction whose description contains a keyword is counted as that subscription. Comes with common services pre-loaded.</p>
+          <h2 className="font-semibold text-slate-800">Tracked items</h2>
+          <p className="text-xs text-slate-400 mt-0.5 mb-3">Any transaction whose description contains the keyword is counted here. Add rent (your landlord's name), bills, EMIs, or subscriptions. Common subscriptions come pre-loaded.</p>
           <form onSubmit={addRule} className="space-y-2 mb-3">
             <input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Display name (e.g. Hotstar)"
+              placeholder="Display name (e.g. Flat rent)"
               className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
             />
             <div className="flex gap-2">
               <input
                 value={form.keyword}
                 onChange={(e) => setForm({ ...form, keyword: e.target.value })}
-                placeholder="Keyword (e.g. HOTSTAR)"
+                placeholder="Keyword (e.g. landlord name)"
                 className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
               />
-              <select
+              <input
+                list="fixed-types"
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value })}
-                className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white"
-              >
-                {['OTT', 'AI', 'Music', 'Productivity', 'Cloud', 'Other'].map((t) => <option key={t}>{t}</option>)}
-              </select>
+                placeholder="Type"
+                className="w-28 border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+              />
+              <datalist id="fixed-types">
+                {TYPE_SUGGESTIONS.map((t) => <option key={t} value={t} />)}
+              </datalist>
             </div>
-            <button type="submit" disabled={createRule.isPending} className="w-full px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50">Add service</button>
+            <button type="submit" disabled={createRule.isPending} className="w-full px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50">Add item</button>
           </form>
           {createRule.isError && <p className="text-xs text-red-600 mb-2">Couldn't add — that keyword may already exist.</p>}
           <div className="space-y-1.5 max-h-96 overflow-y-auto">
