@@ -5,16 +5,14 @@ _Last updated: June 2026 · single canonical reference_
 The complete guide to Spend Tracker — the mental model, every screen, the full
 API, backend internals, and how each number is computed.
 
-> **🚧 Multi-account / multi-card support is being introduced.** Shipped so far: an
-> `Account` entity (bank or card), an `account_id` on every transaction,
-> account-aware deduplication, the `/api/accounts` CRUD API (§6, §8),
-> **cross-account transfer detection** (§4.1), and **credit-card statement parsers**
-> for HDFC, SBI, Axis, and American Express — card charges become per-merchant spend
-> while card payments/cashback are kept out of income (§4.3, §7). Still in progress:
-> an upload-time account picker (tagging is currently done at import time, not yet in
-> the UI), per-account analytics filtering, and the account-selector UI. Until those
-> land, the dashboard presents a single combined view across all accounts. See the
-> [ROADMAP](ROADMAP.md#multi-account--multi-bank).
+> **Multi-account / multi-card support.** Shipped: an `Account` entity (bank or
+> card), an `account_id` on every transaction, account-aware deduplication, the
+> `/api/accounts` CRUD API (§6, §8), **cross-account transfer detection** (§4.1),
+> **credit-card statement parsers** for HDFC, SBI, Axis, and American Express (§4.3,
+> §7), an **upload-time account picker** (tag a statement to its account on import),
+> a **per-account filter** across every analytics endpoint, and an **account selector**
+> in the top bar to switch between the combined view and any single bank/card. Still
+> open: per-account net-worth/balances. See the [ROADMAP](ROADMAP.md#multi-account--multi-bank).
 
 ## Table of contents
 1. [Overview](#1-overview)
@@ -203,6 +201,11 @@ normalizer (`_CARD_SOURCES`) · bank-side keywords in `config.py` → `card_paym
 
 Four pages, navigated from the top bar: **Dashboard · Transactions · Income · Categories**.
 
+The top bar also holds two global scopes that apply to every page: the **demo-mode
+toggle** (real vs synthetic data) and the **account selector** — "All accounts" for
+the combined view, or any single bank/card to drill in. Switching either re-scopes
+and refetches the whole dashboard.
+
 ### 5.1 Dashboard (`/`)
 Home overview. Adapts to the selected date range and shows the actual data window
 on top (e.g. "Showing 1 Jan 2026 – 24 May 2026"). If the period has no data, the
@@ -238,7 +241,8 @@ categorisation cache and apply to future imports.
 ## 6. API reference
 
 Base URL `/api` (Vite proxies to `http://localhost:8000` in dev). Analytics
-endpoints accept `mode=real|demo` and optional `start_date` / `end_date` (ISO).
+endpoints accept `mode=real|demo`, an optional `account_id` (scope to one
+account; omit for the combined view), and optional `start_date` / `end_date` (ISO).
 
 ### Analytics — `/api/analytics/*`
 | Endpoint | Returns |
@@ -260,7 +264,7 @@ endpoints accept `mode=real|demo` and optional `start_date` / `end_date` (ISO).
 ### Transactions — `/api/transactions`
 | Endpoint | Purpose |
 |---|---|
-| `GET ""` | Paginated list; filters: `mode`, `start_date`, `end_date`, `category_id`, `transaction_type`, `page`, `page_size`; sort: `sort_by` (`date`\|`amount`), `sort_dir` (`asc`\|`desc`) |
+| `GET ""` | Paginated list; filters: `mode`, `account_id`, `start_date`, `end_date`, `category_id`, `transaction_type`, `page`, `page_size`; sort: `sort_by` (`date`\|`amount`), `sort_dir` (`asc`\|`desc`) |
 | `POST /reconcile-transfers` | (Re)detect transfers between your own accounts and flag both sides; returns the matched pairs (§4.1) |
 | `PATCH /{id}/category` | Re-assign a transaction's category |
 | `DELETE /{id}` | Delete a transaction |
@@ -280,12 +284,12 @@ The bank accounts and credit cards you own. Each transaction links to one via
 | `PATCH /{id}` | Update any field |
 | `DELETE /{id}` | Delete — linked transactions survive, their `account_id` is set null |
 
-> **Foundation only (in progress).** `account_id` is exposed on transactions but is
-> **not yet a query filter**, and analytics endpoints do not yet scope by account.
-> Statement-to-account tagging at ingestion is the next step. See the top-of-doc note.
+`account_id` is a query filter on the analytics endpoints and the transactions list
+(omit for the combined view), and the transactions list returns a nested `account`
+object on each row.
 
 ### Upload / Demo / Health
-- `POST /api/upload` (multipart, `?mode=real|demo`) → runs ingestion; `GET /api/ingest-log[/{id}]`
+- `POST /api/upload` (multipart, `?mode=real|demo&account_id=<id>`) → runs ingestion, tagging the rows to `account_id` if given; `GET /api/ingest-log[/{id}]`
 - `POST /api/demo/generate` · `DELETE /api/demo/clear`
 - `GET /health` → `{"status": "ok"}`
 
@@ -414,13 +418,15 @@ Stack: **React 19 + TypeScript + Vite + Tailwind CSS + Recharts + TanStack Query
 
 **Key components:** `layout/TopBar` + `Layout` (shell + nav), `dashboard/DateRangeFilter`,
 `transactions/TransactionTable` + `CategoryBadge`, `upload/FileUploadModal`,
-`shared/DemoModeToggle` + `LoadingSpinner`, chart components in `charts/`.
+`shared/DemoModeToggle` + `shared/AccountSelector` + `LoadingSpinner`, chart components in `charts/`.
 
-**State:** server state via TanStack Query (cache keys include `mode` so toggling
-demo mode refetches automatically); `store/demoMode.ts` (Zustand) holds the
-real/demo toggle. Data hooks live in `hooks/useAnalytics.ts`,
-`hooks/useTransactions.ts`, `hooks/useCategories.ts`. Axios client (`api/client.ts`)
-points at the `/api` Vite proxy.
+**State:** server state via TanStack Query (cache keys include `mode` **and the
+selected `account_id`** so toggling either refetches automatically); two Zustand
+stores — `store/demoMode.ts` (real/demo toggle) and `store/selectedAccount.ts` (the
+globally-selected account, `null` = all). Data hooks live in `hooks/useAnalytics.ts`,
+`hooks/useTransactions.ts`, `hooks/useAccounts.ts`, `hooks/useCategories.ts`; each
+analytics hook reads the selected account and threads it through. Axios client
+(`api/client.ts`) points at the `/api` Vite proxy.
 
 ---
 
@@ -454,7 +460,7 @@ run dev`). Useful when something else already owns `8000`.
 ## 11. Testing
 
 ```bash
-cd backend && python -m pytest -q     # 33 passing
+cd backend && python -m pytest -q     # 34 passing
 ```
 - `test_ingestion.py` — parser registry, normalizer, dedup (incl. per-account row-hash), internal-transfer detection
 - `test_api.py` — API integration tests (in-memory SQLite), incl. accounts CRUD + account-tagged transactions
@@ -490,7 +496,7 @@ From the June 2026 data audit — these shape what the dashboard can show today:
 
 | Priority | Item |
 |---|---|
-| 🔴 P0 | Multi-account & multi-card — _in progress;_ shipped: Account entity, account-aware dedup, accounts API, cross-account transfer matching, and credit-card parsers (HDFC/SBI/Axis/Amex). Next: upload-time account tagging UI, per-account analytics + selector UI |
+| 🟢 | Multi-account & multi-card — _largely shipped:_ Account entity, account-aware dedup, accounts API, cross-account transfer matching, credit-card parsers (HDFC/SBI/Axis/Amex), upload-time account picker, per-account analytics filter + account selector. Remaining: per-account net-worth/balances |
 | 🔴 P0 | Bulk-categorize queue — clear the 72% uncategorized fast |
 | 🔴 P0 | Merchant normalization (collapse brand variants) |
 | 🟠 P1 | "Big purchases — identify these" strip for large one-offs |

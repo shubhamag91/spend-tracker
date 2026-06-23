@@ -66,6 +66,8 @@ Core ingestion, categorization, and visualization.
 - [x] **Credit-card statement parsers** — HDFC, SBI, Axis, American Express (PDF, incl. password-protected); card charges = spend, card credits excluded from income
 - [x] **Recurring detection rewrite** — group by `normalize_merchant` so reference-numbered payees stop fragmenting; inferred weekly/monthly/quarterly cadence
 - [x] **Sort transactions by amount** — `sort_by`/`sort_dir` on the API + clickable Date/Amount column headers
+- [x] **Upload-time account picker** — tag a statement to its account (or create one) at import; PDF uploads enabled
+- [x] **Per-account analytics + selector** — `account_id` filter on all endpoints + a top-bar account selector that scopes the whole dashboard
 
 ---
 
@@ -95,10 +97,10 @@ reclassified as an internal transfer (so spend is never double-counted).
 - [x] **Cross-account (bank↔bank) transfer matching** — `reconcile_internal_transfers` pairs a debit in one account with the matching credit in another and excludes both from spend/income; runs after ingestion + `POST /transactions/reconcile-transfers`
 - [x] **Credit-card statement parsers** — `hdfc_card`, `sbi_card`, `axis_card`, `amex_card` (PDF); password-protected statements decrypted via `pypdf`. Card charges = per-merchant spend; card credits (payment/cashback/refund) excluded from income via `is_card_payment`
 - [x] **In-file duplicate handling** — identical repeated charges in one statement are preserved (occurrence-suffixed row hash) instead of collapsing
-- [~] **Statement tagging** — account tagging works at import time (`account_id` threaded through ingestion); upload-time picker UI + per-account watched sub-folders still to do
+- [x] **Statement tagging UI** — upload-time account picker (pick existing or create inline; PDF allowed); `account_id` threaded through ingestion. Per-account watched sub-folders still optional.
+- [x] **Per-account analytics** — optional `account_id` filter across every analytics endpoint and the transactions list (shared `_mode_acct` helper)
+- [x] **Account selector UI** — top-bar selector (Zustand) for combined view or drill into one bank/card; part of every query key so the dashboard re-scopes on switch
 - [ ] **Bank↔card reconciliation refinement** — currently the bank's lump card-bill payment is excluded from spend and card charges are counted (no double-count); explicit bank-payment↔card-statement linking is not attempted (CRED aggregates payments)
-- [ ] **Per-account analytics** — `account_id` filter across all endpoints
-- [ ] **Account selector UI** — combined view + drill-into-one-account filter
 - [x] **Inter-account transfer detection** — name-based `is_internal_transfer` for single statements; superseded by cross-account matching above for tagged data
 - [ ] **Cross-account net-worth snapshot** — needs balance data in statements
 - [ ] **New bank parsers** — Kotak, Paytm, PhonePe (Axis & SBI now have card parsers; Yes Bank PDF parses via the generic PDF parser)

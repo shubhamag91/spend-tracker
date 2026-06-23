@@ -42,6 +42,7 @@ toggle for sharing without exposing real finances.
 - **Credit-card statements**: Dedicated PDF parsers for HDFC, SBI, Axis, and American Express cards (password-protected statements decrypted via pypdf); card charges become per-merchant spend, card payments/cashback stay out of income
 - **Smart classification**: Auto-detects internal transfers (self top-ups) and investments (Grip, Zerodha, Groww, SIPs…) and keeps them out of "spend"
 - **Cross-account transfer detection**: Moves between two of your own accounts are matched (debit↔credit) and excluded from spend & income
+- **Per-account view**: Tag each statement to its account on upload; an account selector scopes the whole dashboard to one bank/card or shows them combined
 - **Auto-categorization**: Editable keyword rules assign categories (Food, Transport, Groceries…)
 - **Analytics**: Wallet breakdown, category spend, weekly velocity, day-of-week heatmap, top merchants, merchant-normalized recurring detection, and plain-English insights
 - **Sortable transactions**: Sort the transactions table by date or amount
@@ -164,7 +165,7 @@ endpoints accept `mode=real|demo` and optional `start_date` / `end_date`.
 
 | Group | Endpoints |
 |---|---|
-| Analytics | `/analytics/wallet`, `/summary`, `/by-day` · `/by-week` · `/by-month` · `/by-year`, `/by-category`, `/weekly-velocity`, `/heatmap`, `/top-merchants`, `/recurring`, `/insights` |
+| Analytics | `/analytics/wallet`, `/summary`, `/by-day` · `/by-week` · `/by-month` · `/by-year`, `/by-category`, `/weekly-velocity`, `/heatmap`, `/top-merchants`, `/recurring`, `/insights` — all accept optional `account_id` |
 | Transactions | `GET /transactions` (filters + `sort_by`/`sort_dir`), `POST /transactions/reconcile-transfers`, `PATCH /transactions/{id}/category`, `DELETE /transactions/{id}` |
 | Categories | `GET·POST /categories`, `PATCH·DELETE /categories/{id}` |
 | Accounts | `GET·POST /accounts`, `PATCH·DELETE /accounts/{id}` (bank / card sources — see note below) |
@@ -173,13 +174,12 @@ endpoints accept `mode=real|demo` and optional `start_date` / `end_date`.
 
 Full reference in [§6 of the docs](docs/DOCUMENTATION.md#6-api-reference).
 
-> 🚧 **Multi-account / multi-card** support is being introduced. Shipped — an
-> `Account` entity (bank or card), an `account_id` on every transaction,
-> account-aware dedup, the `/api/accounts` API, cross-account transfer matching
-> (moves between your own accounts excluded from spend/income), and credit-card
-> statement parsers (HDFC, SBI, Axis, Amex). Next: an upload-time account picker,
-> per-account analytics, and the selector UI — so the dashboard still shows one
-> combined view across all accounts for now.
+> **Multi-account / multi-card.** An `Account` entity (bank or card), an `account_id`
+> on every transaction, account-aware dedup, the `/api/accounts` API, cross-account
+> transfer matching, credit-card statement parsers (HDFC, SBI, Axis, Amex), an
+> upload-time account picker, a per-account `account_id` filter on every analytics
+> endpoint, and an account selector in the top bar (combined view, or drill into one
+> bank/card). Remaining: per-account net-worth / balances.
 
 ## Key Design Decisions
 
