@@ -466,3 +466,26 @@ def test_two_rules_same_merchant_split_by_amount(client):
     items = {it["type"]: it for it in client.get("/api/subscriptions/summary?mode=real").json()["items"]}
     assert items["Electricity"]["amount"] == 5200.0 and items["Electricity"]["count"] == 1
     assert items["Phone"]["amount"] == 111.0 and items["Phone"]["count"] == 1
+
+
+def test_subscription_monthly_amount_override(client):
+    from datetime import date
+    client.post("/api/subscription-rules", json={
+        "name": "Maintenance", "keyword": "radius", "type": "Maintenance",
+        "frequency": "variable", "monthly_amount": 5200})
+    db = TestingSession()
+    db.add(Transaction(date=date(2025, 5, 24), amount=20007.0, transaction_type="debit",
+                       description="RADIUS SYNERGIES", source="t", data_mode="real", row_hash="mo1"))
+    db.commit(); db.close()
+    item = client.get("/api/subscriptions/summary?mode=real").json()["items"][0]
+    assert item["amount"] == 20007.0 and item["monthly"] == 5200.0  # override wins over variable avg
+
+
+def test_hdfc_card_strips_bogus_emi_prefix():
+    from app.ingestion.pdf_parsers.hdfc_card import _TXN_RE
+    import re
+    line = "24/05/2026| 14:54 EMI RADIUS SYNERGIES INTERNOIDA C 20,007.70 l"
+    m = _TXN_RE.match(line)
+    desc = re.sub(r"\s+", " ", m.group(2)).strip().rstrip("+").strip()
+    desc = re.sub(r"^EMI\s+", "", desc, flags=re.IGNORECASE)
+    assert desc == "RADIUS SYNERGIES INTERNOIDA"

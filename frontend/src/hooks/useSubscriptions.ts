@@ -30,7 +30,7 @@ function invalidate(qc: ReturnType<typeof useQueryClient>) {
 export function useCreateSubscriptionRule() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { name: string; keyword: string; type: string; frequency: string; min_amount?: number | null }) =>
+    mutationFn: (body: { name: string; keyword: string; type: string; frequency: string; min_amount?: number | null; monthly_amount?: number | null }) =>
       client.post('/subscription-rules', body).then((r) => r.data),
     onSuccess: () => invalidate(qc),
   });

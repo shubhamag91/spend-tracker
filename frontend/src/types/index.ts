@@ -161,6 +161,7 @@ export interface SubscriptionRule {
   type: string;
   frequency: Frequency;
   min_amount: number | null;
+  monthly_amount: number | null;
   created_at: string;
 }
 

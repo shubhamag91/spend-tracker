@@ -11,6 +11,7 @@ class SubscriptionRuleOut(BaseModel):
     type: str
     frequency: str
     min_amount: Optional[float] = None
+    monthly_amount: Optional[float] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -22,6 +23,7 @@ class SubscriptionRuleCreate(BaseModel):
     type: str = "Other"
     frequency: str = "monthly"
     min_amount: Optional[float] = None
+    monthly_amount: Optional[float] = None
 
 
 class SubscriptionRuleUpdate(BaseModel):
@@ -29,6 +31,7 @@ class SubscriptionRuleUpdate(BaseModel):
     type: Optional[str] = None
     frequency: Optional[str] = None
     min_amount: Optional[float] = None
+    monthly_amount: Optional[float] = None
 
 
 class SubscriptionItem(BaseModel):

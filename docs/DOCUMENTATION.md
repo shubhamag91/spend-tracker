@@ -265,7 +265,10 @@ subscription services pre-loaded; add rent (landlord's name), bills, EMIs yourse
 A rule can carry an optional **min-amount floor**, and **several rules may share one
 merchant string** — so a single merchant that hosts more than one bill is split by
 amount (e.g. "Airtel Payments Bank" → parents' electricity ≥₹1,000 *and* the phone
-bill below it). More-specific (min-amount) rules are matched first. Spans banks and cards. Everything stays counted as spend — a reporting overlay, not
+bill below it). More-specific (min-amount) rules are matched first. A rule can also
+set an explicit **`monthly_amount`** override that wins over frequency normalisation —
+for a lump-sum prepaid where you know the monthly rate (e.g. a ₹20,007 maintenance
+recharge that's really ₹5,200/month). Spans banks and cards. Everything stays counted as spend — a reporting overlay, not
 a reclassification. (API + table are named `subscription*` internally.)
 
 ---
@@ -312,7 +315,7 @@ account; omit for the combined view), and optional `start_date` / `end_date` (IS
 ### Subscriptions — `/api/subscription-rules` · `/api/subscriptions`
 | Endpoint | Purpose |
 |---|---|
-| `GET /subscription-rules` · `POST` · `PATCH /{id}` · `DELETE /{id}` | Manage tracked items (name, keyword, type, frequency, optional `min_amount`) |
+| `GET /subscription-rules` · `POST` · `PATCH /{id}` · `DELETE /{id}` | Manage tracked items (name, keyword, type, frequency, optional `min_amount` + `monthly_amount` override) |
 | `GET /subscriptions/summary` | Detected items grouped by service + type, each normalised to a monthly cost; `monthly_total` headline (optional `account_id`) |
 
 ### Categories — `/api/categories`
@@ -389,7 +392,9 @@ per line; direction comes from an explicit `D`/`C` / `Dr`/`Cr` marker where the
 issuer prints one (SBI, Axis) or from keywords otherwise (HDFC, Amex). Any source
 listed in the normalizer's `_CARD_SOURCES` has its credits treated as card
 settlement, not income (§4.3). Password-protected statements (e.g. Axis) are
-decrypted with `pypdf` before parsing.
+decrypted with `pypdf` before parsing. The HDFC card parser strips a misleading
+leading `EMI ` label that HDFC prints on some full (non-installment) charges, so the
+description is the real merchant name.
 
 ### Categorization engine
 `app/categorization/` — categories + keyword lists seeded from `rules.py` at
@@ -453,7 +458,7 @@ Indexes: `(date, data_mode)`, `(category_id)`, `(account_id)`.
 **`accounts`** — `id · name (unique) · type` (`bank`/`card`) `· issuer · last4 · created_at`
 **`categories`** — `id · name · color · keywords_json`
 **`investment_rules`** — `id · keyword (unique) · created_at` (user-defined investment payees, §4.2)
-**`subscription_rules`** — `id · name · keyword · type · frequency · min_amount · created_at` (tracked fixed-spend items, §5.6; keyword is **not** unique — a merchant can host several bills split by `min_amount`)
+**`subscription_rules`** — `id · name · keyword · type · frequency · min_amount · monthly_amount · created_at` (tracked fixed-spend items, §5.6; keyword is **not** unique — a merchant can host several bills split by `min_amount`)
 **`ingest_log`** — `id · filename · file_hash · parser_used · rows_parsed/inserted/skipped · status · error_message · ingested_at`
 
 ---
@@ -508,7 +513,7 @@ run dev`). Useful when something else already owns `8000`.
 ## 11. Testing
 
 ```bash
-cd backend && python -m pytest -q     # 40 passing
+cd backend && python -m pytest -q     # 42 passing
 ```
 - `test_ingestion.py` — parser registry, normalizer, dedup (incl. per-account row-hash), internal-transfer detection
 - `test_api.py` — API integration tests (in-memory SQLite), incl. accounts CRUD + account-tagged transactions

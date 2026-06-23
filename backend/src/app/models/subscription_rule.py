@@ -29,4 +29,8 @@ class SubscriptionRule(Base):
     # recurring bill from small payments that share the same merchant string
     # (e.g. a ₹5,200 electricity bill vs a ₹111 charge, both "Airtel Payments Bank").
     min_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    # Optional explicit monthly cost — overrides frequency-based normalisation.
+    # Useful when you know the monthly rate better than the data (e.g. a lump-sum
+    # prepaid maintenance recharge of ₹20,007 that really costs ₹5,200/month).
+    monthly_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

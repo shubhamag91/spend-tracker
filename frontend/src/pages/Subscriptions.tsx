@@ -38,7 +38,7 @@ export default function Subscriptions() {
   const createRule = useCreateSubscriptionRule();
   const updateRule = useUpdateSubscriptionRule();
   const deleteRule = useDeleteSubscriptionRule();
-  const [form, setForm] = useState({ name: '', keyword: '', type: 'Rent', frequency: 'monthly', minAmount: '' });
+  const [form, setForm] = useState({ name: '', keyword: '', type: 'Rent', frequency: 'monthly', minAmount: '', monthlyAmount: '' });
 
   function addRule(e: React.FormEvent) {
     e.preventDefault();
@@ -47,8 +47,9 @@ export default function Subscriptions() {
       {
         name: form.name.trim(), keyword: form.keyword.trim(), type: form.type, frequency: form.frequency,
         min_amount: form.minAmount ? Number(form.minAmount) : null,
+        monthly_amount: form.monthlyAmount ? Number(form.monthlyAmount) : null,
       },
-      { onSuccess: () => setForm({ ...form, name: '', keyword: '', minAmount: '' }) },
+      { onSuccess: () => setForm({ ...form, name: '', keyword: '', minAmount: '', monthlyAmount: '' }) },
     );
   }
 
@@ -162,13 +163,24 @@ export default function Subscriptions() {
                 {FREQUENCIES.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
-            <input
-              type="number"
-              value={form.minAmount}
-              onChange={(e) => setForm({ ...form, minAmount: e.target.value })}
-              placeholder="Min ₹ (optional — ignore smaller charges to the same payee)"
-              className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
-            />
+            <div className="flex gap-2">
+              <input
+                type="number"
+                value={form.minAmount}
+                onChange={(e) => setForm({ ...form, minAmount: e.target.value })}
+                placeholder="Min ₹ (optional)"
+                title="Only count charges at or above this amount — separates a big bill from small ones to the same payee"
+                className="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+              />
+              <input
+                type="number"
+                value={form.monthlyAmount}
+                onChange={(e) => setForm({ ...form, monthlyAmount: e.target.value })}
+                placeholder="₹/mo override"
+                title="Set the true monthly cost — useful for lump-sum prepaids (e.g. ₹20,007 recharge that's really ₹5,200/mo)"
+                className="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+              />
+            </div>
             <button type="submit" disabled={createRule.isPending} className="w-full px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50">Add item</button>
           </form>
           {createRule.isError && <p className="text-xs text-red-600 mb-2">Couldn't add — that keyword may already exist.</p>}

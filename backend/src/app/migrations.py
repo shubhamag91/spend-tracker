@@ -16,6 +16,7 @@ _ADDITIVE_COLUMNS = [
     ("transactions", "account_id", "INTEGER REFERENCES accounts(id)"),
     ("subscription_rules", "frequency", "TEXT NOT NULL DEFAULT 'monthly'"),
     ("subscription_rules", "min_amount", "REAL"),
+    ("subscription_rules", "monthly_amount", "REAL"),
 ]
 
 

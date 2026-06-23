@@ -58,6 +58,10 @@ class HdfcCardParser(BaseParser):
             except ValueError:
                 continue
             desc = re.sub(r"\s+", " ", desc).strip().rstrip("+").strip()
+            # HDFC prefixes some merchant lines with a bogus "EMI " label (it appears
+            # on full one-shot charges, not actual installments) — strip it so the
+            # description is the real merchant name.
+            desc = re.sub(r"^EMI\s+", "", desc, flags=re.IGNORECASE)
             amount = float(amount_s.replace(",", ""))
             if amount == 0:
                 continue

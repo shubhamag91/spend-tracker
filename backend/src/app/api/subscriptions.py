@@ -43,8 +43,8 @@ def create_rule(body: SubscriptionRuleCreate, db: Session = Depends(get_db)):
                      else SubscriptionRule.min_amount == body.min_amount)
     if dup.first():
         raise HTTPException(status_code=409, detail="That keyword + amount rule already exists")
-    rule = SubscriptionRule(name=name, keyword=keyword, type=type_,
-                            frequency=body.frequency, min_amount=body.min_amount)
+    rule = SubscriptionRule(name=name, keyword=keyword, type=type_, frequency=body.frequency,
+                            min_amount=body.min_amount, monthly_amount=body.monthly_amount)
     db.add(rule)
     db.commit()
     db.refresh(rule)
@@ -65,6 +65,8 @@ def update_rule(rule_id: int, body: SubscriptionRuleUpdate, db: Session = Depend
         rule.name = body.name.strip() or rule.name
     if body.min_amount is not None:
         rule.min_amount = body.min_amount if body.min_amount > 0 else None
+    if body.monthly_amount is not None:
+        rule.monthly_amount = body.monthly_amount if body.monthly_amount > 0 else None
     db.commit()
     db.refresh(rule)
     return rule
@@ -130,6 +132,8 @@ def subscriptions_summary(
                 break
 
     def monthly_cost(rule: SubscriptionRule, latest: float, total: float) -> float:
+        if rule.monthly_amount:           # explicit override wins
+            return rule.monthly_amount
         if rule.frequency == "weekly":
             return latest * 52 / 12
         if rule.frequency == "variable":
