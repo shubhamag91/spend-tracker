@@ -7,11 +7,20 @@ from app.ingestion.csv_parsers.hdfc import HdfcCsvParser
 from app.ingestion.csv_parsers.icici import IciciCsvParser
 from app.ingestion.csv_parsers.generic import GenericCsvParser
 from app.ingestion.pdf_parsers.statement import PdfStatementParser
+from app.ingestion.pdf_parsers.hdfc_card import HdfcCardParser
+from app.ingestion.pdf_parsers.sbi_card import SbiCardParser
+from app.ingestion.pdf_parsers.axis_card import AxisCardParser
+from app.ingestion.pdf_parsers.amex_card import AmexCardParser
 from app.ingestion.xlsx_parser import XlsxParser
 
 _PARSERS: List[BaseParser] = [
     HdfcCsvParser(),
     IciciCsvParser(),
+    # specific credit-card layouts — must precede the generic PDF parser
+    HdfcCardParser(),
+    SbiCardParser(),
+    AxisCardParser(),
+    AmexCardParser(),
     PdfStatementParser(),
     XlsxParser(),
     GenericCsvParser(),

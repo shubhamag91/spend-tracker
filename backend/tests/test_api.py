@@ -252,3 +252,25 @@ def test_reconcile_interbank_transfers(client):
     # exactly the two matched rows are flagged internal
     flagged = client.get("/api/transactions?mode=real&page_size=50").json()["items"]
     assert sum(1 for t in flagged if t["is_internal_transfer"]) == 2
+
+
+def test_normalizer_keeps_in_file_duplicates_and_flags_card_credits(client):
+    from datetime import date
+    from app.ingestion.base import RawTransaction
+    from app.ingestion.normalizer import normalize_and_insert
+    db = TestingSession()
+    raws = [
+        # two identical charges in one statement -> both must survive
+        RawTransaction(date(2026, 5, 7), 2.0, "debit", "GOOGLE CLOUD", "sbi_card"),
+        RawTransaction(date(2026, 5, 7), 2.0, "debit", "GOOGLE CLOUD", "sbi_card"),
+        # a credit on a card statement -> bill settlement, not income
+        RawTransaction(date(2026, 5, 14), 7315.0, "credit", "PAYMENT RECEIVED", "sbi_card"),
+    ]
+    inserted, skipped = normalize_and_insert(raws, db, "fh", "real", account_id=None)
+    db.commit()
+    assert inserted == 3 and skipped == 0  # the duplicate is kept, not collapsed
+
+    from app.models.transaction import Transaction
+    credit = db.query(Transaction).filter(Transaction.transaction_type == "credit").one()
+    assert credit.is_card_payment is True  # card credit excluded from income
+    db.close()

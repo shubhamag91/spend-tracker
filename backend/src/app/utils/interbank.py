@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from datetime import date
 from sqlalchemy.orm import Session
 from app.models.transaction import Transaction
+from app.models.account import Account
 
 _AMOUNT_EPS = 0.01          # paise-level tolerance for "same amount"
 _DEFAULT_WINDOW_DAYS = 3    # NEFT/IMPS usually settle same-day or next-day
@@ -36,9 +37,14 @@ def reconcile_internal_transfers(
     two different accounts (same amount, within `window_days`). Returns the
     matched pairs. Untagged transactions are left untouched.
     """
+    # Only bank↔bank moves are transfers. Credit-card debits are merchant
+    # charges (never a transfer source), and card settlement is handled by the
+    # is_card_payment flag — so restrict matching to bank accounts to avoid a
+    # card charge falsely pairing with a same-amount bank credit.
+    bank_ids = [a.id for a in db.query(Account).filter(Account.type == "bank").all()]
     txns = (
         db.query(Transaction)
-        .filter(Transaction.data_mode == mode, Transaction.account_id.isnot(None))
+        .filter(Transaction.data_mode == mode, Transaction.account_id.in_(bank_ids))
         .all()
     )
     for t in txns:
