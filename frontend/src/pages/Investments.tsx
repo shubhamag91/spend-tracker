@@ -58,7 +58,6 @@ export default function Investments() {
   }
 
   const platforms = summary?.by_platform ?? [];
-  const maxTotal = platforms[0]?.total ?? 1;
 
   return (
     <div className="space-y-5">
@@ -84,36 +83,8 @@ export default function Investments() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Left: by-platform + transactions */}
-        <div className="lg:col-span-2 space-y-5">
-          <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h2 className="font-semibold text-slate-800 mb-3">By platform <span className="text-xs font-normal text-slate-400">· click to filter the list</span></h2>
-            {platforms.length === 0 ? (
-              <p className="text-sm text-slate-400">No investments tagged yet. Add a rule on the right, or mark a transaction as investment.</p>
-            ) : (
-              <div className="space-y-2.5">
-                {platforms.map((p) => {
-                  const active = platform?.keyword === p.keyword;
-                  return (
-                    <button
-                      key={p.name}
-                      onClick={() => p.keyword && selectPlatform(p.name, p.keyword)}
-                      className={`w-full text-left rounded-lg px-2 py-1.5 -mx-2 transition-colors ${active ? 'bg-indigo-50 ring-1 ring-indigo-200' : 'hover:bg-slate-50'}`}
-                    >
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-slate-700 font-medium">{p.name} <span className="text-slate-400 font-normal">· {p.count}×</span></span>
-                        <span className="text-slate-800 font-semibold">{formatCurrency(p.total)}</span>
-                      </div>
-                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(p.total / maxTotal) * 100}%` }} />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
+        {/* Left: transactions */}
+        <div className="lg:col-span-2">
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
               <h2 className="font-semibold text-slate-800 flex items-center gap-2">
@@ -172,7 +143,30 @@ export default function Investments() {
           </div>
         </div>
 
-        {/* Right: rules manager — collapsed by default so rules aren't deleted by mistake */}
+        {/* Right: by-platform summary + rules manager */}
+        <div className="space-y-5">
+        {platforms.length > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 p-5 h-fit">
+            <h2 className="font-semibold text-slate-800 mb-2">By platform <span className="text-xs font-normal text-slate-400">· click to filter</span></h2>
+            <div className="space-y-0.5">
+              {platforms.map((p) => {
+                const active = platform?.keyword === p.keyword;
+                return (
+                  <button
+                    key={p.name}
+                    onClick={() => p.keyword && selectPlatform(p.name, p.keyword)}
+                    className={`w-full flex items-center justify-between gap-3 text-sm rounded-lg px-2 py-1.5 transition-colors ${active ? 'bg-indigo-50 ring-1 ring-indigo-200' : 'hover:bg-slate-50'}`}
+                  >
+                    <span className="text-slate-700 font-medium truncate">{p.name} <span className="text-slate-400 font-normal">· {p.count}×</span></span>
+                    <span className="text-slate-800 font-semibold whitespace-nowrap">{formatCurrency(p.total)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* rules manager — collapsed by default so rules aren't deleted by mistake */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 h-fit">
           <button onClick={() => setRulesOpen((o) => !o)} className="w-full flex items-center justify-between text-left">
             <h2 className="font-semibold text-slate-800">Investment payee rules</h2>
@@ -217,6 +211,7 @@ export default function Investments() {
               <p className="text-[11px] text-slate-400 mt-3">Removing a rule keeps already-tagged transactions tagged. Use "Unmark" on a row to move one back to spend.</p>
             </>
           )}
+        </div>
         </div>
       </div>
     </div>
