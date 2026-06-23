@@ -68,6 +68,7 @@ Core ingestion, categorization, and visualization.
 - [x] **Sort transactions by amount** — `sort_by`/`sort_dir` on the API + clickable Date/Amount column headers
 - [x] **Upload-time account picker** — tag a statement to its account (or create one) at import; PDF uploads enabled
 - [x] **Per-account analytics + selector** — `account_id` filter on all endpoints + a top-bar account selector that scopes the whole dashboard
+- [x] **Investment management** — `investment_rules` (user-defined payee keywords) + manual per-transaction tagging + a dedicated Investments page (total invested, by-platform, rules manager); separates investments from spend, bank-only. This was the main driver of the inflated "spend" total.
 
 ---
 

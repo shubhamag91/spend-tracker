@@ -170,12 +170,18 @@ account-tagged data, the cross-account matcher recomputes this flag, replacing t
 name-based guess and avoiding its false positives on incoming payments.
 
 ### 4.2 `is_investment` — wealth, not spend
-A debit is an investment when it goes to a broking/MF/SIP platform.
+A debit is an investment when it goes to a broking/MF/SIP platform. Three signals:
 
 - ✅ Any UPI handle containing `.BRK@` (`GRIPBROKING.CF.BRK@…`, `INDSTOCKS.ICCL1.BRK@…`)
-- ✅ Platform names: Grip, Zerodha, Groww, INDSTOCKS, Smallcase, Kuvera, Upstox, INDmoney…
+- ✅ Built-in platform names: Grip, Zerodha, Groww, INDSTOCKS, Smallcase, Kuvera, Upstox, INDmoney…
+- ✅ **User-defined payee rules** (`investment_rules` table) — keywords like `LENDBOX`,
+  `INDIAN CLEARING` that the app didn't ship knowing, managed from the Investments page.
 
-Detector: `backend/src/app/utils/investments.py` · keywords in `config.py` → `investment_keywords`
+Built-in detection runs at ingest (`utils/investments.py`; config keywords +
+DB rules combined). On top of that, the **Investments page** lets you manage rules
+(re-applied to existing **bank** transactions, flag turned ON only so manual tags
+survive) and **manually mark/unmark** any bank debit. Investment management is
+bank-only — you invest from a bank, not a card. See §5.5.
 
 ### 4.3 `is_card_payment` — card settlement, not spend or income
 Two cases, both kept out of the numbers so card money is counted once:
@@ -236,6 +242,15 @@ the right. Edit name, colour, and the **keyword rules** that drive
 auto-categorisation; create / delete categories. Changes invalidate the
 categorisation cache and apply to future imports.
 
+### 5.5 Investments (`/investments`)
+Manage what counts as an investment vs. spend (bank accounts only). Shows **total
+invested**, a **by-platform** breakdown (grouped by matched keyword), and the list
+of tagged investment transactions (each with an **Unmark** to send it back to
+spend). A **payee-rules** manager on the right lets you add keywords (e.g. `LENDBOX`)
+— matching bank transactions are reclassified immediately and on every future import.
+Tagging an outflow as investment removes it from spend and adds it to the wallet's
+*Invested* bucket, so "spent" reflects real consumption.
+
 ---
 
 ## 6. API reference
@@ -264,10 +279,18 @@ account; omit for the combined view), and optional `start_date` / `end_date` (IS
 ### Transactions — `/api/transactions`
 | Endpoint | Purpose |
 |---|---|
-| `GET ""` | Paginated list; filters: `mode`, `account_id`, `start_date`, `end_date`, `category_id`, `transaction_type`, `page`, `page_size`; sort: `sort_by` (`date`\|`amount`), `sort_dir` (`asc`\|`desc`) |
+| `GET ""` | Paginated list; filters: `mode`, `account_id`, `start_date`, `end_date`, `category_id`, `transaction_type`, `is_investment`, `page`, `page_size`; sort: `sort_by` (`date`\|`amount`), `sort_dir` (`asc`\|`desc`) |
 | `POST /reconcile-transfers` | (Re)detect transfers between your own accounts and flag both sides; returns the matched pairs (§4.1) |
 | `PATCH /{id}/category` | Re-assign a transaction's category |
+| `PATCH /{id}/investment?is_investment=` | Manually mark/unmark as investment (§4.2) |
 | `DELETE /{id}` | Delete a transaction |
+
+### Investments — `/api/investment-rules` · `/api/investments`
+| Endpoint | Purpose |
+|---|---|
+| `GET /investment-rules` · `POST` · `DELETE /{id}` | Manage payee keywords; creating one re-tags matching bank transactions |
+| `POST /investment-rules/apply` | Re-apply all rules to existing bank transactions (flag ON only) |
+| `GET /investments/summary` | Total invested + count + by-platform breakdown (optional `account_id`) |
 
 ### Categories — `/api/categories`
 `GET ""` · `POST ""` · `PATCH /{id}` · `DELETE /{id}`
@@ -406,6 +429,7 @@ Indexes: `(date, data_mode)`, `(category_id)`, `(account_id)`.
 
 **`accounts`** — `id · name (unique) · type` (`bank`/`card`) `· issuer · last4 · created_at`
 **`categories`** — `id · name · color · keywords_json`
+**`investment_rules`** — `id · keyword (unique) · created_at` (user-defined investment payees, §4.2)
 **`ingest_log`** — `id · filename · file_hash · parser_used · rows_parsed/inserted/skipped · status · error_message · ingested_at`
 
 ---
@@ -414,7 +438,7 @@ Indexes: `(date, data_mode)`, `(category_id)`, `(account_id)`.
 
 Stack: **React 19 + TypeScript + Vite + Tailwind CSS + Recharts + TanStack Query v5 + Zustand + React Router**.
 
-**Pages:** `Dashboard.tsx`, `Transactions.tsx`, `Income.tsx`, `Categories.tsx`.
+**Pages:** `Dashboard.tsx`, `Transactions.tsx`, `Investments.tsx`, `Income.tsx`, `Categories.tsx`.
 
 **Key components:** `layout/TopBar` + `Layout` (shell + nav), `dashboard/DateRangeFilter`,
 `transactions/TransactionTable` + `CategoryBadge`, `upload/FileUploadModal`,
@@ -424,9 +448,9 @@ Stack: **React 19 + TypeScript + Vite + Tailwind CSS + Recharts + TanStack Query
 selected `account_id`** so toggling either refetches automatically); two Zustand
 stores — `store/demoMode.ts` (real/demo toggle) and `store/selectedAccount.ts` (the
 globally-selected account, `null` = all). Data hooks live in `hooks/useAnalytics.ts`,
-`hooks/useTransactions.ts`, `hooks/useAccounts.ts`, `hooks/useCategories.ts`; each
-analytics hook reads the selected account and threads it through. Axios client
-(`api/client.ts`) points at the `/api` Vite proxy.
+`hooks/useTransactions.ts`, `hooks/useAccounts.ts`, `hooks/useInvestments.ts`,
+`hooks/useCategories.ts`; each analytics hook reads the selected account and threads
+it through. Axios client (`api/client.ts`) points at the `/api` Vite proxy.
 
 ---
 
@@ -460,7 +484,7 @@ run dev`). Useful when something else already owns `8000`.
 ## 11. Testing
 
 ```bash
-cd backend && python -m pytest -q     # 34 passing
+cd backend && python -m pytest -q     # 35 passing
 ```
 - `test_ingestion.py` — parser registry, normalizer, dedup (incl. per-account row-hash), internal-transfer detection
 - `test_api.py` — API integration tests (in-memory SQLite), incl. accounts CRUD + account-tagged transactions
@@ -497,6 +521,7 @@ From the June 2026 data audit — these shape what the dashboard can show today:
 | Priority | Item |
 |---|---|
 | 🟢 | Multi-account & multi-card — _largely shipped:_ Account entity, account-aware dedup, accounts API, cross-account transfer matching, credit-card parsers (HDFC/SBI/Axis/Amex), upload-time account picker, per-account analytics filter + account selector. Remaining: per-account net-worth/balances |
+| 🟢 | Investment management — _shipped:_ payee rules + manual tagging + Investments page separate investments from spend (§5.5). Was the main driver of inflated "spend". |
 | 🔴 P0 | Bulk-categorize queue — clear the 72% uncategorized fast |
 | 🔴 P0 | Merchant normalization (collapse brand variants) |
 | 🟠 P1 | "Big purchases — identify these" strip for large one-offs |
