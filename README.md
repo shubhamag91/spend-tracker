@@ -44,6 +44,7 @@ toggle for sharing without exposing real finances.
 - **Cross-account transfer detection**: Moves between two of your own accounts are matched (debit↔credit) and excluded from spend & income
 - **Per-account view**: Tag each statement to its account on upload; an account selector scopes the whole dashboard to one bank/card or shows them combined
 - **Investment management**: A dedicated Investments page with payee rules (e.g. Lendbox, Indian Clearing) + one-click manual tagging keeps investments out of "spend" — for existing and future imports (bank accounts only)
+- **Subscriptions tracker**: A dedicated Subscriptions page detects services by name (Netflix, Spotify, Claude, ChatGPT…) and groups them by type (OTT / AI / Music / Productivity / Cloud); add your own services
 - **Auto-categorization**: Editable keyword rules assign categories (Food, Transport, Groceries…)
 - **Analytics**: Wallet breakdown, category spend, weekly velocity, day-of-week heatmap, top merchants, merchant-normalized recurring detection, and plain-English insights
 - **Sortable transactions**: Sort the transactions table by date or amount
@@ -154,7 +155,7 @@ spend-tracker/
     ├── api/                 # axios client → /api proxy
     ├── components/          # charts, dashboard, layout, shared, transactions, upload
     ├── hooks/               # TanStack Query data hooks
-    ├── pages/               # Dashboard, Transactions, Investments, Income, Categories
+    ├── pages/               # Dashboard, Transactions, Investments, Subscriptions, Income, Categories
     ├── store/               # Zustand (demo-mode toggle)
     ├── types/ · utils/      # shared types + helpers
 ```
@@ -171,6 +172,7 @@ endpoints accept `mode=real|demo` and optional `start_date` / `end_date`.
 | Categories | `GET·POST /categories`, `PATCH·DELETE /categories/{id}` |
 | Accounts | `GET·POST /accounts`, `PATCH·DELETE /accounts/{id}` (bank / card sources — see note below) |
 | Investments | `GET·POST /investment-rules`, `DELETE /investment-rules/{id}`, `POST /investment-rules/apply`, `GET /investments/summary` |
+| Subscriptions | `GET·POST /subscription-rules`, `DELETE /subscription-rules/{id}`, `GET /subscriptions/summary` |
 | Upload / Demo | `POST /upload`, `POST /demo/generate`, `DELETE /demo/clear` |
 | Health | `GET /health` |
 

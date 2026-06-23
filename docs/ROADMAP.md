@@ -13,7 +13,7 @@
 | 🔴 P0 | **Bulk-categorize queue** — clear the ~72% uncategorized fast |
 | 🔴 P0 | **Merchant normalization** `[~]` — `normalize_merchant` collapses payee variants for recurring detection; extend to top-merchants + category rollups |
 | 🟠 P1 | **"Big purchases" strip** — surface large one-off payments that need a human label |
-| 🟠 P1 | **Committed-monthly-outflow** number — subscriptions + SIPs |
+| 🟠 P1 | **Committed-monthly-outflow** number — subscriptions (✅ tracked) + SIPs, rolled into one recurring-commitment figure |
 | 🟢 | **Replace Income page with a Wallet view** (see note under Shipped) |
 | 🟢 | **Net-worth / investments-growth view** |
 
@@ -69,6 +69,8 @@ Core ingestion, categorization, and visualization.
 - [x] **Upload-time account picker** — tag a statement to its account (or create one) at import; PDF uploads enabled
 - [x] **Per-account analytics + selector** — `account_id` filter on all endpoints + a top-bar account selector that scopes the whole dashboard
 - [x] **Investment management** — `investment_rules` (user-defined payee keywords) + manual per-transaction tagging + a dedicated Investments page (total invested, by-platform, rules manager); separates investments from spend, bank-only. This was the main driver of the inflated "spend" total.
+- [x] **Subscriptions tracker** — `subscription_rules` (name + keyword + type), ~25 services pre-seeded, dedicated Subscriptions page grouping detected services by type (OTT/AI/Music/Productivity/Cloud); reporting overlay, stays counted as spend. Spans banks + cards.
+- [x] **Stricter recurring detection** — `/analytics/recurring` now requires a consistent amount and a periodic cadence, dropping unrelated repeat payments to the same payee.
 
 ---
 

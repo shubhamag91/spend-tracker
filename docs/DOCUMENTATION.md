@@ -251,6 +251,14 @@ spend). A **payee-rules** manager on the right lets you add keywords (e.g. `LEND
 Tagging an outflow as investment removes it from spend and adds it to the wallet's
 *Invested* bucket, so "spent" reflects real consumption.
 
+### 5.6 Subscriptions (`/subscriptions`)
+Tracks recurring services detected by **name** (not by recurrence, so even a
+once-seen sub shows). Lists your services grouped by **type** (OTT / AI / Music /
+Productivity / Cloud), each with its latest charge, and a tracked-services manager
+to add your own (display name + keyword + type). Ships with ~25 common services
+pre-loaded. Spans banks and cards. Subscriptions remain counted as spend — this is
+a reporting overlay, not a reclassification.
+
 ---
 
 ## 6. API reference
@@ -269,7 +277,7 @@ account; omit for the combined view), and optional `start_date` / `end_date` (IS
 | `GET /weekly-velocity` | Per-week spend + week-over-week % change |
 | `GET /heatmap` | Avg spend by day-of-week × week-of-month |
 | `GET /top-merchants` | Top payees by spend, with count + avg/txn |
-| `GET /recurring` | Recurring payments grouped by **normalized merchant** (ref numbers stripped), with inferred cadence (weekly/monthly/quarterly) + next-due estimate |
+| `GET /recurring` | Recurring payments grouped by **normalized merchant** — only those with a **consistent amount** (within 50%) on a **periodic cadence** (≥6 days apart) count, with inferred frequency (weekly/monthly/quarterly) + next-due estimate |
 | `GET /income-monthly` · `/income-sources` · `/savings-trajectory` | Income views (see §5.3 caveat) |
 | `GET /insights` | Plain-English spending insights |
 
@@ -291,6 +299,12 @@ account; omit for the combined view), and optional `start_date` / `end_date` (IS
 | `GET /investment-rules` · `POST` · `DELETE /{id}` | Manage payee keywords; creating one re-tags matching bank transactions |
 | `POST /investment-rules/apply` | Re-apply all rules to existing bank transactions (flag ON only) |
 | `GET /investments/summary` | Total invested + count + by-platform breakdown (optional `account_id`) |
+
+### Subscriptions — `/api/subscription-rules` · `/api/subscriptions`
+| Endpoint | Purpose |
+|---|---|
+| `GET /subscription-rules` · `POST` · `DELETE /{id}` | Manage tracked services (name, keyword, type) |
+| `GET /subscriptions/summary` | Detected subscriptions grouped by service + type, with totals (optional `account_id`) |
 
 ### Categories — `/api/categories`
 `GET ""` · `POST ""` · `PATCH /{id}` · `DELETE /{id}`
@@ -430,6 +444,7 @@ Indexes: `(date, data_mode)`, `(category_id)`, `(account_id)`.
 **`accounts`** — `id · name (unique) · type` (`bank`/`card`) `· issuer · last4 · created_at`
 **`categories`** — `id · name · color · keywords_json`
 **`investment_rules`** — `id · keyword (unique) · created_at` (user-defined investment payees, §4.2)
+**`subscription_rules`** — `id · name · keyword (unique) · type · created_at` (tracked subscription services, §5.6)
 **`ingest_log`** — `id · filename · file_hash · parser_used · rows_parsed/inserted/skipped · status · error_message · ingested_at`
 
 ---
@@ -438,7 +453,7 @@ Indexes: `(date, data_mode)`, `(category_id)`, `(account_id)`.
 
 Stack: **React 19 + TypeScript + Vite + Tailwind CSS + Recharts + TanStack Query v5 + Zustand + React Router**.
 
-**Pages:** `Dashboard.tsx`, `Transactions.tsx`, `Investments.tsx`, `Income.tsx`, `Categories.tsx`.
+**Pages:** `Dashboard.tsx`, `Transactions.tsx`, `Investments.tsx`, `Subscriptions.tsx`, `Income.tsx`, `Categories.tsx`.
 
 **Key components:** `layout/TopBar` + `Layout` (shell + nav), `dashboard/DateRangeFilter`,
 `transactions/TransactionTable` + `CategoryBadge`, `upload/FileUploadModal`,
@@ -449,7 +464,7 @@ selected `account_id`** so toggling either refetches automatically); two Zustand
 stores — `store/demoMode.ts` (real/demo toggle) and `store/selectedAccount.ts` (the
 globally-selected account, `null` = all). Data hooks live in `hooks/useAnalytics.ts`,
 `hooks/useTransactions.ts`, `hooks/useAccounts.ts`, `hooks/useInvestments.ts`,
-`hooks/useCategories.ts`; each analytics hook reads the selected account and threads
+`hooks/useSubscriptions.ts`, `hooks/useCategories.ts`; each analytics hook reads the selected account and threads
 it through. Axios client (`api/client.ts`) points at the `/api` Vite proxy.
 
 ---
@@ -484,7 +499,7 @@ run dev`). Useful when something else already owns `8000`.
 ## 11. Testing
 
 ```bash
-cd backend && python -m pytest -q     # 35 passing
+cd backend && python -m pytest -q     # 37 passing
 ```
 - `test_ingestion.py` — parser registry, normalizer, dedup (incl. per-account row-hash), internal-transfer detection
 - `test_api.py` — API integration tests (in-memory SQLite), incl. accounts CRUD + account-tagged transactions
@@ -522,6 +537,7 @@ From the June 2026 data audit — these shape what the dashboard can show today:
 |---|---|
 | 🟢 | Multi-account & multi-card — _largely shipped:_ Account entity, account-aware dedup, accounts API, cross-account transfer matching, credit-card parsers (HDFC/SBI/Axis/Amex), upload-time account picker, per-account analytics filter + account selector. Remaining: per-account net-worth/balances |
 | 🟢 | Investment management — _shipped:_ payee rules + manual tagging + Investments page separate investments from spend (§5.5). Was the main driver of inflated "spend". |
+| 🟢 | Subscriptions tracker — _shipped:_ name-based detection + types (OTT/AI/…) + Subscriptions page (§5.6). Stricter recurring detection (consistent amount + cadence). |
 | 🔴 P0 | Bulk-categorize queue — clear the 72% uncategorized fast |
 | 🔴 P0 | Merchant normalization (collapse brand variants) |
 | 🟠 P1 | "Big purchases — identify these" strip for large one-offs |
