@@ -24,6 +24,7 @@ export interface Transaction {
   source: string;
   data_mode: 'real' | 'demo';
   is_internal_transfer: boolean;
+  is_investment: boolean;
   created_at: string;
   category: { id: number; name: string; color: string } | null;
   account: { id: number; name: string; type: 'bank' | 'card' } | null;
@@ -131,5 +132,23 @@ export interface WalletSummary {
   spent: number;
   unspent: number;
   spend_txns: number;
+}
+
+export interface InvestmentRule {
+  id: number;
+  keyword: string;
+  created_at: string;
+}
+
+export interface PlatformInvest {
+  name: string;
+  total: number;
+  count: number;
+}
+
+export interface InvestmentSummary {
+  total_invested: number;
+  count: number;
+  by_platform: PlatformInvest[];
 }
 

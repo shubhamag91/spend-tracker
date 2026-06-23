@@ -15,6 +15,13 @@ from app.config import settings
 _BROKING_VPA = re.compile(r"\.BRK@", re.IGNORECASE)
 
 
+def investment_keywords(db) -> list[str]:
+    """Built-in keywords from config plus user-defined InvestmentRule keywords."""
+    from app.models.investment_rule import InvestmentRule
+    custom = [r.keyword for r in db.query(InvestmentRule).all()]
+    return list(settings.investment_keywords) + custom
+
+
 def is_investment(description: str, names: list[str] | None = None) -> bool:
     names = names if names is not None else settings.investment_keywords
     if not description:

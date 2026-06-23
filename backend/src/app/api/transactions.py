@@ -27,6 +27,7 @@ def list_transactions(
     end_date: Optional[date] = None,
     category_id: Optional[int] = None,
     transaction_type: Optional[str] = None,
+    is_investment: Optional[bool] = None,
     sort_by: str = Query("date", pattern="^(date|amount)$"),
     sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     page: int = Query(1, ge=1),
@@ -44,6 +45,8 @@ def list_transactions(
         q = q.filter(Transaction.category_id == category_id)
     if transaction_type:
         q = q.filter(Transaction.transaction_type == transaction_type)
+    if is_investment is not None:
+        q = q.filter(Transaction.is_investment == is_investment)
 
     total = q.count()
     sort_col = _SORTABLE[sort_by]
@@ -89,6 +92,18 @@ def reconcile_transfers(
             for p in pairs
         ],
     }
+
+
+@router.patch("/{txn_id}/investment", response_model=TransactionOut)
+def set_investment(txn_id: int, is_investment: bool = Query(...), db: Session = Depends(get_db)):
+    """Manually mark/unmark a transaction as an investment (moves it Spent ↔ Invested)."""
+    txn = db.query(Transaction).filter(Transaction.id == txn_id).first()
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    txn.is_investment = is_investment
+    db.commit()
+    db.refresh(txn)
+    return txn
 
 
 @router.patch("/{txn_id}/category", response_model=TransactionOut)

@@ -302,3 +302,47 @@ def test_analytics_scoped_by_account(client):
     # transactions list scoped too
     txns = client.get(f"/api/transactions?mode=real&account_id={bid}").json()
     assert txns["total"] == 1 and txns["items"][0]["description"] == "B spend"
+
+
+def test_investment_rules_and_manual_toggle(client):
+    from datetime import date
+    from app.models.account import Account
+    db = TestingSession()
+    bank = Account(name="Bank", type="bank"); card = Account(name="Card", type="card")
+    db.add_all([bank, card]); db.commit(); db.refresh(bank); db.refresh(card)
+    db.add_all([
+        Transaction(date=date(2025, 5, 1), amount=50000.0, transaction_type="debit",
+                    description="NET TXN/RAZORPAY/X/LENDBOX", source="t", data_mode="real", row_hash="i1", account_id=bank.id),
+        Transaction(date=date(2025, 5, 2), amount=900.0, transaction_type="debit",
+                    description="SWIGGY", source="t", data_mode="real", row_hash="i2", account_id=bank.id),
+        # a card txn that matches the keyword must NOT be tagged (bank-only)
+        Transaction(date=date(2025, 5, 3), amount=100.0, transaction_type="debit",
+                    description="LENDBOX something", source="t", data_mode="real", row_hash="i3", account_id=card.id),
+    ])
+    db.commit(); db.close()
+
+    # spend before
+    assert client.get("/api/analytics/summary?mode=real").json()["total_spend"] == 50000.0 + 900.0 + 100.0
+
+    # add a rule -> tags the matching BANK transaction only
+    r = client.post("/api/investment-rules", json={"keyword": "LENDBOX"})
+    assert r.status_code == 201 and r.json()["tagged"] == 1
+
+    # the Lendbox bank debit leaves spend; card row and Swiggy remain
+    assert client.get("/api/analytics/summary?mode=real").json()["total_spend"] == 1000.0
+    inv = client.get("/api/investments/summary?mode=real").json()
+    assert inv["total_invested"] == 50000.0 and inv["count"] == 1
+
+    # duplicate keyword rejected
+    assert client.post("/api/investment-rules", json={"keyword": "LENDBOX"}).status_code == 409
+
+    # manual toggle: mark Swiggy as investment, then unmark
+    swiggy = [t for t in client.get("/api/transactions?mode=real").json()["items"] if t["description"] == "SWIGGY"][0]
+    assert client.patch(f"/api/transactions/{swiggy['id']}/investment?is_investment=true").status_code == 200
+    assert client.get("/api/analytics/summary?mode=real").json()["total_spend"] == 100.0  # only card row left
+    client.patch(f"/api/transactions/{swiggy['id']}/investment?is_investment=false")
+    assert client.get("/api/analytics/summary?mode=real").json()["total_spend"] == 1000.0
+
+    # is_investment filter on the transactions list
+    only_inv = client.get("/api/transactions?mode=real&is_investment=true").json()
+    assert only_inv["total"] == 1 and only_inv["items"][0]["description"].endswith("LENDBOX")

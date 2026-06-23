@@ -5,6 +5,7 @@ import AccountSelector from '../shared/AccountSelector';
 const NAV = [
   { path: '/', label: 'Dashboard' },
   { path: '/transactions', label: 'Transactions' },
+  { path: '/investments', label: 'Investments' },
   { path: '/income', label: 'Income' },
   { path: '/categories', label: 'Categories' },
 ];

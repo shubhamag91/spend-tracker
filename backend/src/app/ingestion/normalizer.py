@@ -4,7 +4,7 @@ from app.models.transaction import Transaction, IngestLog
 from app.categorization.engine import categorize
 from app.utils.dedup import row_hash as compute_row_hash
 from app.utils.transfers import is_internal_transfer
-from app.utils.investments import is_investment
+from app.utils.investments import is_investment, investment_keywords
 from app.utils.card_payments import is_card_payment
 
 # Parser SOURCE_NAMEs that come from a credit-card statement (not a bank account).
@@ -27,6 +27,7 @@ def normalize_and_insert(
     # on the UNIQUE row_hash. Re-importing the same file reproduces the same
     # suffixes, so cross-file dedup still works.
     batch_seq: dict[str, int] = {}
+    inv_keywords = investment_keywords(db)  # config defaults + user rules, loaded once
 
     for raw in raw_txns:
         base = compute_row_hash(str(raw.date), raw.amount, raw.description, account_id)
@@ -42,7 +43,7 @@ def normalize_and_insert(
         category_id = categorize(raw.description, db)
         internal = is_internal_transfer(raw.description)
         # investments flow both ways: SIP purchases (debit) and redemptions (credit)
-        investment = is_investment(raw.description)
+        investment = is_investment(raw.description, inv_keywords)
         # Card-bill settlements aren't consumption or income. Two cases:
         #  - a debit on a *bank* account paying a card (CRED CLUB, …)
         #  - any credit on a *card* statement (payment received, cashback, refund) —

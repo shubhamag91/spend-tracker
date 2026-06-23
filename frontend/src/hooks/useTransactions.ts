@@ -11,6 +11,7 @@ interface TransactionFilter {
   start_date?: string;
   end_date?: string;
   category_id?: number;
+  is_investment?: boolean;
   sort_by?: SortField;
   sort_dir?: SortDir;
   page?: number;
@@ -18,11 +19,12 @@ interface TransactionFilter {
 }
 
 export function useTransactions(filter: TransactionFilter) {
-  const params: Record<string, string | number> = { mode: filter.mode };
+  const params: Record<string, string | number | boolean> = { mode: filter.mode };
   if (filter.account_id != null) params.account_id = filter.account_id;
   if (filter.start_date) params.start_date = filter.start_date;
   if (filter.end_date) params.end_date = filter.end_date;
   if (filter.category_id) params.category_id = filter.category_id;
+  if (filter.is_investment != null) params.is_investment = filter.is_investment;
   if (filter.sort_by) params.sort_by = filter.sort_by;
   if (filter.sort_dir) params.sort_dir = filter.sort_dir;
   params.page = filter.page ?? 1;

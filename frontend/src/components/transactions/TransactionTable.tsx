@@ -3,6 +3,7 @@ import type { Transaction } from '../../types';
 import type { SortField, SortDir } from '../../hooks/useTransactions';
 import { useCategories } from '../../hooks/useCategories';
 import { useUpdateCategory } from '../../hooks/useTransactions';
+import { useSetInvestment } from '../../hooks/useInvestments';
 import { formatDate, formatCurrency } from '../../utils/formatters';
 import CategoryBadge from './CategoryBadge';
 import LoadingSpinner from '../shared/LoadingSpinner';
@@ -77,6 +78,8 @@ function CategoryDropdown({ txnId, currentCategoryId }: { txnId: number; current
 }
 
 export default function TransactionTable({ transactions, isLoading, total, page, totalPages, onPageChange, sortBy, sortDir, onSort }: Props) {
+  const setInvestment = useSetInvestment();
+
   if (isLoading) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 flex items-center justify-center h-64">
@@ -135,6 +138,24 @@ export default function TransactionTable({ transactions, isLoading, total, page,
                         ↔ Internal
                       </span>
                     )}
+                    {txn.is_investment && (
+                      <span
+                        className="flex-shrink-0 text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded-full"
+                        title="Tagged as an investment — excluded from spend"
+                      >
+                        📈 Investment
+                      </span>
+                    )}
+                    {/* Mark/unmark investment — bank debits only (you invest from a bank, not a card) */}
+                    {txn.account?.type === 'bank' && txn.transaction_type === 'debit' && !txn.is_internal_transfer && (
+                      <button
+                        onClick={() => setInvestment.mutate({ txnId: txn.id, value: !txn.is_investment })}
+                        className="flex-shrink-0 text-[10px] text-slate-400 hover:text-indigo-600 hover:underline"
+                        title={txn.is_investment ? 'Move back to spend' : 'Count this as an investment, not spend'}
+                      >
+                        {txn.is_investment ? 'unmark' : 'mark investment'}
+                      </button>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3">
@@ -151,7 +172,7 @@ export default function TransactionTable({ transactions, isLoading, total, page,
                   <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{txn.source}</span>
                 </td>
                 <td className={`px-4 py-3 text-right font-medium ${
-                  txn.is_internal_transfer
+                  txn.is_internal_transfer || txn.is_investment
                     ? 'text-slate-400'
                     : txn.transaction_type === 'debit' ? 'text-red-600' : 'text-green-600'
                 }`}>
