@@ -15,6 +15,15 @@ export interface Account {
   created_at: string;
 }
 
+export interface AccountStatus {
+  id: number;
+  name: string;
+  type: 'bank' | 'card';
+  last4: string | null;
+  latest_transaction_date: string | null;
+  transaction_count: number;
+}
+
 export interface Transaction {
   id: number;
   date: string;

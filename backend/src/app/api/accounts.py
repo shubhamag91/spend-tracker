@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, and_
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.account import Account
-from app.schemas.account import AccountOut, AccountCreate, AccountUpdate
+from app.models.transaction import Transaction
+from app.schemas.account import AccountOut, AccountCreate, AccountUpdate, AccountStatus
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
@@ -17,6 +19,29 @@ def _validate_type(t: str) -> None:
 @router.get("", response_model=list[AccountOut])
 def list_accounts(db: Session = Depends(get_db)):
     return db.query(Account).order_by(Account.type, Account.name).all()
+
+
+@router.get("/status", response_model=list[AccountStatus])
+def accounts_status(mode: str = Query("real", pattern="^(real|demo)$"), db: Session = Depends(get_db)):
+    """Per-account freshness: the latest transaction date (how current the data is)
+    and transaction count — so you can see which account needs a new statement."""
+    rows = (
+        db.query(Account, func.max(Transaction.date), func.count(Transaction.id))
+        .outerjoin(Transaction, and_(Transaction.account_id == Account.id, Transaction.data_mode == mode))
+        .group_by(Account.id)
+        .order_by(Account.type, Account.name)
+        .all()
+    )
+    out = []
+    for acct, latest, count in rows:
+        if isinstance(latest, str):  # SQLite may return the date as text
+            from datetime import datetime as _dt
+            latest = _dt.strptime(latest[:10], "%Y-%m-%d").date()
+        out.append(AccountStatus(
+            id=acct.id, name=acct.name, type=acct.type, last4=acct.last4,
+            latest_transaction_date=latest, transaction_count=count,
+        ))
+    return out
 
 
 @router.post("", response_model=AccountOut, status_code=201)

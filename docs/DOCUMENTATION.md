@@ -219,6 +219,7 @@ page collapses to a single empty state — no empty tabs.
 
 - **Hero** — the wallet story: *You spent ₹X of ₹Y loaded · ₹Z invested · Unspent ₹W*, with a segmented `[Invested][Spent][Unspent]` bar.
 - **KPI strip** — Daily spend · Spend txns · Top category.
+- **Account freshness** — each bank/card with its *data-through* date and a colour-coded staleness dot (🟢 ≤7d, 🟡 ≤30d, 🔴 >30d), so you can see which account needs a fresh statement.
 - **Tab: Overview** — *Where your money went* (category breakdown) + *Insights*.
 - **Tab: Patterns & Trends** — Weekly spend velocity · Day-of-week heatmap · Top merchants · Recurring transactions.
 - **Date control** — preset pills + a Custom Range picker pre-filled with and clamped to your real data bounds.
@@ -331,6 +332,7 @@ The bank accounts and credit cards you own. Each transaction links to one via
 | Endpoint | Purpose |
 |---|---|
 | `GET ""` | List accounts (ordered by type, then name) |
+| `GET /status` | Per-account freshness: latest transaction date + transaction count (which statement to pull next) |
 | `POST ""` | Create — `name` (unique), `type` ∈ {`bank`, `card`}, optional `issuer`, `last4` |
 | `PATCH /{id}` | Update any field |
 | `DELETE /{id}` | Delete — linked transactions survive, their `account_id` is set null |
@@ -515,7 +517,7 @@ run dev`). Useful when something else already owns `8000`.
 ## 11. Testing
 
 ```bash
-cd backend && python -m pytest -q     # 44 passing
+cd backend && python -m pytest -q     # 45 passing
 ```
 - `test_ingestion.py` — parser registry, normalizer, dedup (incl. per-account row-hash), internal-transfer detection
 - `test_api.py` — API integration tests (in-memory SQLite), incl. accounts CRUD + account-tagged transactions

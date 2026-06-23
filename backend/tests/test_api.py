@@ -517,3 +517,24 @@ def test_transactions_search_filter(client):
     db.commit(); db.close()
     r = client.get("/api/transactions?mode=real&search=indian%20clearing").json()
     assert r["total"] == 1 and "INDIAN CLEARING" in r["items"][0]["description"]
+
+
+def test_accounts_status(client):
+    from datetime import date
+    from app.models.account import Account
+    db = TestingSession()
+    a = Account(name="HDFC", type="bank"); b = Account(name="Amex", type="card")
+    db.add_all([a, b]); db.commit(); db.refresh(a); db.refresh(b)
+    db.add_all([
+        Transaction(date=date(2025, 6, 22), amount=100.0, transaction_type="debit", description="x",
+                    source="t", data_mode="real", row_hash="st1", account_id=a.id),
+        Transaction(date=date(2025, 6, 20), amount=50.0, transaction_type="debit", description="y",
+                    source="t", data_mode="real", row_hash="st2", account_id=a.id),
+    ])
+    db.commit(); db.close()
+
+    status = {s["name"]: s for s in client.get("/api/accounts/status?mode=real").json()}
+    assert status["HDFC"]["latest_transaction_date"] == "2025-06-22"
+    assert status["HDFC"]["transaction_count"] == 2
+    # an account with no transactions still appears, with null date
+    assert status["Amex"]["latest_transaction_date"] is None and status["Amex"]["transaction_count"] == 0

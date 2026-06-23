@@ -6,6 +6,7 @@ import {
   useWeeklyVelocity, useHeatmap, useTopMerchants, useRecurring,
 } from '../hooks/useAnalytics';
 import DateRangeFilter, { type DateRange, PRESETS } from '../components/dashboard/DateRangeFilter';
+import AccountFreshness from '../components/dashboard/AccountFreshness';
 import FileUploadModal from '../components/upload/FileUploadModal';
 import { formatCurrency } from '../utils/formatters';
 import { format, parseISO } from 'date-fns';
@@ -152,6 +153,9 @@ export default function Dashboard() {
         <Stat label="Spend txns" value={String(summary.data?.transaction_count ?? 0)} />
         <Stat label="Top category" value={summary.data?.top_category ?? '—'} emoji={summary.data?.top_category ? emoji(summary.data.top_category) : undefined} />
       </div>
+
+      {/* Per-account data freshness — which statement to pull next */}
+      <AccountFreshness />
 
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-slate-100">
