@@ -312,7 +312,7 @@ account; omit for the combined view), and optional `start_date` / `end_date` (IS
 ### Subscriptions — `/api/subscription-rules` · `/api/subscriptions`
 | Endpoint | Purpose |
 |---|---|
-| `GET /subscription-rules` · `POST` · `PATCH /{id}` · `DELETE /{id}` | Manage tracked items (name, keyword, type, frequency) |
+| `GET /subscription-rules` · `POST` · `PATCH /{id}` · `DELETE /{id}` | Manage tracked items (name, keyword, type, frequency, optional `min_amount`) |
 | `GET /subscriptions/summary` | Detected items grouped by service + type, each normalised to a monthly cost; `monthly_total` headline (optional `account_id`) |
 
 ### Categories — `/api/categories`
