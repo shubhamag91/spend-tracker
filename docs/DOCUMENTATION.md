@@ -254,13 +254,16 @@ Tagging an outflow as investment removes it from spend and adds it to the wallet
 ### 5.6 Fixed Spends (`/subscriptions`)
 Your recurring monthly commitments — **rent, bills (electricity / internet / phone),
 EMIs, staff, and subscriptions** — detected by **name** (not by recurrence, so even a
-once-seen item shows). Lists them grouped by **type** (Rent / Electricity / Internet /
-OTT / AI / …) with a headline **per-month estimate** (sum of each item's latest
-charge), and a manager to add your own rule (display name + keyword + free-form
-type). Ships with ~25 common subscription services pre-loaded; add rent (your
-landlord's name as the keyword), utilities, EMIs, etc. yourself. Spans banks and
-cards. Everything here stays counted as spend — it's a reporting overlay, not a
-reclassification. (API + table are still named `subscription*` internally.)
+once-seen item shows). Each item carries a **frequency** (monthly / quarterly /
+half-yearly / yearly / weekly / variable) and is **normalised to a monthly cost** —
+a quarterly broadband plan is divided by 3, a lump-sum "variable" item (e.g. prepaid
+electricity recharged irregularly) is averaged over the data window. Lists items
+grouped by **type** (Rent / Electricity / Internet / OTT / AI / …) with a headline
+**per-month total**, and a manager to add a rule (name + keyword + free-form type +
+frequency) or change an existing item's frequency inline. Ships with ~25 common
+subscription services pre-loaded; add rent (landlord's name), bills, EMIs yourself.
+Spans banks and cards. Everything stays counted as spend — a reporting overlay, not
+a reclassification. (API + table are named `subscription*` internally.)
 
 ---
 
@@ -306,8 +309,8 @@ account; omit for the combined view), and optional `start_date` / `end_date` (IS
 ### Subscriptions — `/api/subscription-rules` · `/api/subscriptions`
 | Endpoint | Purpose |
 |---|---|
-| `GET /subscription-rules` · `POST` · `DELETE /{id}` | Manage tracked services (name, keyword, type) |
-| `GET /subscriptions/summary` | Detected subscriptions grouped by service + type, with totals (optional `account_id`) |
+| `GET /subscription-rules` · `POST` · `PATCH /{id}` · `DELETE /{id}` | Manage tracked items (name, keyword, type, frequency) |
+| `GET /subscriptions/summary` | Detected items grouped by service + type, each normalised to a monthly cost; `monthly_total` headline (optional `account_id`) |
 
 ### Categories — `/api/categories`
 `GET ""` · `POST ""` · `PATCH /{id}` · `DELETE /{id}`
@@ -447,7 +450,7 @@ Indexes: `(date, data_mode)`, `(category_id)`, `(account_id)`.
 **`accounts`** — `id · name (unique) · type` (`bank`/`card`) `· issuer · last4 · created_at`
 **`categories`** — `id · name · color · keywords_json`
 **`investment_rules`** — `id · keyword (unique) · created_at` (user-defined investment payees, §4.2)
-**`subscription_rules`** — `id · name · keyword (unique) · type · created_at` (tracked subscription services, §5.6)
+**`subscription_rules`** — `id · name · keyword (unique) · type · frequency · created_at` (tracked subscription services, §5.6)
 **`ingest_log`** — `id · filename · file_hash · parser_used · rows_parsed/inserted/skipped · status · error_message · ingested_at`
 
 ---
@@ -502,7 +505,7 @@ run dev`). Useful when something else already owns `8000`.
 ## 11. Testing
 
 ```bash
-cd backend && python -m pytest -q     # 37 passing
+cd backend && python -m pytest -q     # 38 passing
 ```
 - `test_ingestion.py` — parser registry, normalizer, dedup (incl. per-account row-hash), internal-transfer detection
 - `test_api.py` — API integration tests (in-memory SQLite), incl. accounts CRUD + account-tagged transactions

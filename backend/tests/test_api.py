@@ -394,6 +394,27 @@ def test_subscriptions_detection_by_type(client):
 
     s = client.get("/api/subscriptions/summary?mode=real").json()
     assert s["service_count"] == 2
-    assert s["total"] == 2649.0
-    by_type = {b["type"]: b["total"] for b in s["by_type"]}
+    assert s["window_total"] == 2649.0
+    # default frequency is monthly, so monthly == latest charge
+    by_type = {b["type"]: b["monthly"] for b in s["by_type"]}
     assert by_type == {"AI": 2000.0, "OTT": 649.0}
+
+
+def test_subscription_frequency_normalises_to_monthly(client):
+    from datetime import date
+    # a quarterly broadband plan -> monthly = charge / 3
+    r = client.post("/api/subscription-rules", json={
+        "name": "Broadband", "keyword": "broadband", "type": "Internet", "frequency": "quarterly"}).json()
+    db = TestingSession()
+    db.add(Transaction(date=date(2025, 5, 1), amount=3717.0, transaction_type="debit",
+                       description="TATA PLAY BROADBAND", source="t", data_mode="real", row_hash="f1"))
+    db.commit(); db.close()
+
+    item = client.get("/api/subscriptions/summary?mode=real").json()["items"][0]
+    assert item["amount"] == 3717.0           # actual charge unchanged
+    assert item["monthly"] == round(3717.0 / 3, 2)  # normalised to monthly
+
+    # change it to monthly via PATCH -> monthly == full charge
+    client.patch(f"/api/subscription-rules/{r['id']}", json={"frequency": "monthly"})
+    item = client.get("/api/subscriptions/summary?mode=real").json()["items"][0]
+    assert item["monthly"] == 3717.0

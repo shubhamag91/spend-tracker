@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 # (table, column, column DDL) — additive only.
 _ADDITIVE_COLUMNS = [
     ("transactions", "account_id", "INTEGER REFERENCES accounts(id)"),
+    ("subscription_rules", "frequency", "TEXT NOT NULL DEFAULT 'monthly'"),
 ]
 
 

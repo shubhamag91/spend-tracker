@@ -30,8 +30,17 @@ function invalidate(qc: ReturnType<typeof useQueryClient>) {
 export function useCreateSubscriptionRule() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { name: string; keyword: string; type: string }) =>
+    mutationFn: (body: { name: string; keyword: string; type: string; frequency: string }) =>
       client.post('/subscription-rules', body).then((r) => r.data),
+    onSuccess: () => invalidate(qc),
+  });
+}
+
+export function useUpdateSubscriptionRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: number; type?: string; frequency?: string; name?: string }) =>
+      client.patch(`/subscription-rules/${id}`, body).then((r) => r.data),
     onSuccess: () => invalidate(qc),
   });
 }

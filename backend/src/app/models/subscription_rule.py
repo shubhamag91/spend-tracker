@@ -19,4 +19,7 @@ class SubscriptionRule(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)            # "Netflix"
     keyword: Mapped[str] = mapped_column(String, nullable=False, unique=True)  # "NETFLIX"
     type: Mapped[str] = mapped_column(String, nullable=False, default="Other")  # OTT / AI / …
+    # Billing cadence, used to normalise each charge to a monthly cost:
+    # monthly | quarterly | yearly | weekly | variable (irregular lump-sum).
+    frequency: Mapped[str] = mapped_column(String, nullable=False, default="monthly")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

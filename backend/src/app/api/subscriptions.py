@@ -1,16 +1,26 @@
 from __future__ import annotations
 import collections
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.subscription_rule import SubscriptionRule
 from app.models.transaction import Transaction
 from app.schemas.subscription import (
-    SubscriptionRuleOut, SubscriptionRuleCreate,
+    SubscriptionRuleOut, SubscriptionRuleCreate, SubscriptionRuleUpdate,
     SubscriptionSummary, SubscriptionItem, TypeBreakdown,
 )
 
 router = APIRouter(tags=["subscriptions"])
+
+_VALID_FREQ = {"monthly", "quarterly", "half-yearly", "yearly", "weekly", "variable"}
+# how many months one charge covers (for fixed cadences)
+_MONTHS_PER_CHARGE = {"monthly": 1.0, "quarterly": 3.0, "half-yearly": 6.0, "yearly": 12.0}
+
+
+def _validate_freq(f: str) -> None:
+    if f not in _VALID_FREQ:
+        raise HTTPException(status_code=422, detail=f"frequency must be one of {sorted(_VALID_FREQ)}")
 
 
 # ── Rules ───────────────────────────────────────────────────────────────────────
@@ -23,12 +33,30 @@ def list_rules(db: Session = Depends(get_db)):
 @router.post("/subscription-rules", response_model=SubscriptionRuleOut, status_code=201)
 def create_rule(body: SubscriptionRuleCreate, db: Session = Depends(get_db)):
     name, keyword, type_ = body.name.strip(), body.keyword.strip().upper(), body.type.strip() or "Other"
+    _validate_freq(body.frequency)
     if not name or not keyword:
         raise HTTPException(status_code=422, detail="Name and keyword are required")
     if db.query(SubscriptionRule).filter(SubscriptionRule.keyword == keyword).first():
         raise HTTPException(status_code=409, detail="That keyword already exists")
-    rule = SubscriptionRule(name=name, keyword=keyword, type=type_)
+    rule = SubscriptionRule(name=name, keyword=keyword, type=type_, frequency=body.frequency)
     db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+@router.patch("/subscription-rules/{rule_id}", response_model=SubscriptionRuleOut)
+def update_rule(rule_id: int, body: SubscriptionRuleUpdate, db: Session = Depends(get_db)):
+    rule = db.query(SubscriptionRule).filter(SubscriptionRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    if body.frequency is not None:
+        _validate_freq(body.frequency)
+        rule.frequency = body.frequency
+    if body.type is not None:
+        rule.type = body.type.strip() or "Other"
+    if body.name is not None:
+        rule.name = body.name.strip() or rule.name
     db.commit()
     db.refresh(rule)
     return rule
@@ -51,61 +79,76 @@ def subscriptions_summary(
     account_id: int | None = None,
     db: Session = Depends(get_db),
 ):
-    """Detect subscription charges via the rule keywords and roll them up by
-    service and type. Subscriptions are real spend — this is a reporting overlay,
-    it doesn't change any spend totals."""
+    """Detect fixed-spend charges via rule keywords and normalise each to a
+    monthly cost using its frequency (quarterly /3, yearly /12, etc.). Variable
+    (lump-sum) items are averaged over the data window. Reporting overlay only —
+    these stay counted as spend."""
     rules = db.query(SubscriptionRule).all()
+    empty = SubscriptionSummary(monthly_total=0, window_total=0, service_count=0, by_type=[], items=[])
     if not rules:
-        return SubscriptionSummary(total=0, monthly_estimate=0, service_count=0, by_type=[], items=[])
+        return empty
 
-    # spend debits only (exclude transfers / investments / card-bill payments)
-    q = db.query(Transaction).filter(
+    base = [
         Transaction.data_mode == mode,
         Transaction.transaction_type == "debit",
         Transaction.is_internal_transfer == False,
         Transaction.is_investment == False,
         Transaction.is_card_payment == False,
-    )
+    ]
     if account_id is not None:
-        q = q.filter(Transaction.account_id == account_id)
-    txns = q.all()
+        base.append(Transaction.account_id == account_id)
+    txns = db.query(Transaction).filter(*base).all()
+    if not txns:
+        return empty
 
-    # First matching rule wins (rules carry their own display name + type).
+    # data window in months, used to average "variable" lump-sum items
+    span = db.query(func.min(Transaction.date), func.max(Transaction.date)).filter(*base).first()
+    window_months = 1.0
+    if span and span[0] and span[1]:
+        window_months = max(1.0, (span[1] - span[0]).days / 30.44)
+
     by_service: dict[str, list] = collections.defaultdict(list)
-    service_meta: dict[str, tuple[str, str]] = {}  # service -> (name, type)
+    meta: dict[str, SubscriptionRule] = {}
     for t in txns:
         up = (t.description or "").upper()
         for rule in rules:
             if rule.keyword in up:
                 by_service[rule.name].append(t)
-                service_meta[rule.name] = (rule.name, rule.type)
+                meta[rule.name] = rule
                 break
+
+    def monthly_cost(rule: SubscriptionRule, latest: float, total: float) -> float:
+        if rule.frequency == "weekly":
+            return latest * 52 / 12
+        if rule.frequency == "variable":
+            return total / window_months
+        return latest / _MONTHS_PER_CHARGE.get(rule.frequency, 1.0)
 
     items: list[SubscriptionItem] = []
     for service, ts in by_service.items():
         ts_sorted = sorted(ts, key=lambda x: x.date)
-        _, type_ = service_meta[service]
+        rule = meta[service]
+        latest = ts_sorted[-1].amount
+        total = sum(t.amount for t in ts)
         items.append(SubscriptionItem(
-            name=service,
-            type=type_,
-            amount=round(ts_sorted[-1].amount, 2),     # most recent charge
-            total=round(sum(t.amount for t in ts), 2),
-            count=len(ts),
-            last_date=ts_sorted[-1].date.isoformat(),
+            name=service, type=rule.type, frequency=rule.frequency,
+            monthly=round(monthly_cost(rule, latest, total), 2),
+            amount=round(latest, 2), total=round(total, 2),
+            count=len(ts), last_date=ts_sorted[-1].date.isoformat(),
         ))
-    items.sort(key=lambda i: i.amount, reverse=True)
+    items.sort(key=lambda i: i.monthly, reverse=True)
 
     type_tot: dict[str, list[float]] = collections.defaultdict(list)
     for it in items:
-        type_tot[it.type].append(it.total)
+        type_tot[it.type].append(it.monthly)
     by_type = sorted(
-        (TypeBreakdown(type=t, total=round(sum(v), 2), count=len(v)) for t, v in type_tot.items()),
-        key=lambda b: b.total, reverse=True,
+        (TypeBreakdown(type=t, monthly=round(sum(v), 2), count=len(v)) for t, v in type_tot.items()),
+        key=lambda b: b.monthly, reverse=True,
     )
 
     return SubscriptionSummary(
-        total=round(sum(it.total for it in items), 2),
-        monthly_estimate=round(sum(it.amount for it in items), 2),
+        monthly_total=round(sum(it.monthly for it in items), 2),
+        window_total=round(sum(it.total for it in items), 2),
         service_count=len(items),
         by_type=by_type,
         items=items,

@@ -152,17 +152,22 @@ export interface InvestmentSummary {
   by_platform: PlatformInvest[];
 }
 
+export type Frequency = 'monthly' | 'quarterly' | 'half-yearly' | 'yearly' | 'weekly' | 'variable';
+
 export interface SubscriptionRule {
   id: number;
   name: string;
   keyword: string;
   type: string;
+  frequency: Frequency;
   created_at: string;
 }
 
 export interface SubscriptionItem {
   name: string;
   type: string;
+  frequency: Frequency;
+  monthly: number;
   amount: number;
   total: number;
   count: number;
@@ -171,13 +176,13 @@ export interface SubscriptionItem {
 
 export interface TypeBreakdown {
   type: string;
-  total: number;
+  monthly: number;
   count: number;
 }
 
 export interface SubscriptionSummary {
-  total: number;
-  monthly_estimate: number;
+  monthly_total: number;
+  window_total: number;
   service_count: number;
   by_type: TypeBreakdown[];
   items: SubscriptionItem[];
