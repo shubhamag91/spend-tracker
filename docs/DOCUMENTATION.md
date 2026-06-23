@@ -105,7 +105,7 @@ savings rate, income stability, income diversification, monthly budgets.
 ┌─────────────────────────────────────────────────────────────────────┐
 │                            Frontend                                  │
 │  React 19 + TypeScript + Vite + Tailwind + Recharts + TanStack Query │
-│  Pages: Dashboard · Transactions · Income · Categories              │
+│  Pages: Dashboard · Transactions · Investments · Fixed Spends · …    │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │ HTTP (proxied via Vite dev server, /api)
 ┌──────────────────────────────▼──────────────────────────────────────┐
@@ -205,7 +205,7 @@ normalizer (`_CARD_SOURCES`) · bank-side keywords in `config.py` → `card_paym
 
 ## 5. The screens
 
-Four pages, navigated from the top bar: **Dashboard · Transactions · Income · Categories**.
+Six pages, navigated from the top bar: **Dashboard · Transactions · Investments · Fixed Spends · Income · Categories**.
 
 The top bar also holds two global scopes that apply to every page: the **demo-mode
 toggle** (real vs synthetic data) and the **account selector** — "All accounts" for
