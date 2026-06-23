@@ -1,15 +1,18 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import client from '../api/client';
 import { useSelectedAccountId } from '../store/selectedAccount';
 import type { InvestmentSummary, InvestmentRule } from '../types';
 
-export function useInvestmentSummary(mode: string) {
+export function useInvestmentSummary(mode: string, range?: { start?: string; end?: string }) {
   const accountId = useSelectedAccountId();
   return useQuery<InvestmentSummary>({
-    queryKey: ['investments', 'summary', mode, accountId],
+    placeholderData: keepPreviousData,  // keep showing prior data while a new range loads
+    queryKey: ['investments', 'summary', mode, accountId, range],
     queryFn: () => {
       const params: Record<string, string | number> = { mode };
       if (accountId != null) params.account_id = accountId;
+      if (range?.start) params.start_date = range.start;
+      if (range?.end) params.end_date = range.end;
       return client.get('/investments/summary', { params }).then((r) => r.data);
     },
   });

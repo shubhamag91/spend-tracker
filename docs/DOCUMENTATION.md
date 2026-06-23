@@ -246,8 +246,8 @@ categorisation cache and apply to future imports.
 Manage what counts as an investment vs. spend (bank accounts only). Shows **total
 invested**, a **by-platform** breakdown (grouped by matched keyword), and the list
 of tagged investment transactions (each with an **Unmark** to send it back to
-spend). **Click a platform** in the breakdown to filter the list to it, and sort by
-date or amount. A **payee-rules** manager (collapsed by default, with delete
+spend). A **date-range filter** scopes the totals and the list; **click a platform**
+in the breakdown to filter to it, and sort by date or amount. A **payee-rules** manager (collapsed by default, with delete
 confirmation) lets you add keywords (e.g. `LENDBOX`) + an optional display label
 — matching bank transactions are reclassified immediately and on every future import.
 Tagging an outflow as investment removes it from spend and adds it to the wallet's
@@ -312,7 +312,7 @@ account; omit for the combined view), and optional `start_date` / `end_date` (IS
 |---|---|
 | `GET /investment-rules` · `POST` · `DELETE /{id}` | Manage payee keywords (+ optional display `label`, e.g. keyword `INGENICO` → label `Grip`); creating one re-tags matching bank transactions |
 | `POST /investment-rules/apply` | Re-apply all rules to existing bank transactions (flag ON only) |
-| `GET /investments/summary` | Total invested + count + by-platform breakdown (optional `account_id`) |
+| `GET /investments/summary` | Total invested + count + by-platform breakdown (optional `account_id`, `start_date`, `end_date`) |
 
 ### Subscriptions — `/api/subscription-rules` · `/api/subscriptions`
 | Endpoint | Purpose |

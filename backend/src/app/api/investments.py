@@ -1,5 +1,6 @@
 from __future__ import annotations
 import collections
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -90,6 +91,8 @@ def apply_rules(mode: str = Query("real", pattern="^(real|demo)$"), db: Session 
 def investments_summary(
     mode: str = Query("real", pattern="^(real|demo)$"),
     account_id: int | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     db: Session = Depends(get_db),
 ):
     """Total invested (debits flagged is_investment) + breakdown by platform."""
@@ -100,6 +103,10 @@ def investments_summary(
     )
     if account_id is not None:
         q = q.filter(Transaction.account_id == account_id)
+    if start_date:
+        q = q.filter(Transaction.date >= start_date)
+    if end_date:
+        q = q.filter(Transaction.date <= end_date)
     txns = q.all()
 
     # Group by platform. Each keyword maps to a display label — a rule's own label

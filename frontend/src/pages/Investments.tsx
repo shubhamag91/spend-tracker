@@ -6,13 +6,18 @@ import {
 } from '../hooks/useInvestments';
 import { useSelectedAccountId } from '../store/selectedAccount';
 import { useTransactions, type SortField, type SortDir } from '../hooks/useTransactions';
+import { useByDay } from '../hooks/useAnalytics';
+import DateRangeFilter, { type DateRange, PRESETS } from '../components/dashboard/DateRangeFilter';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
 
 export default function Investments() {
   const mode = useMode();
   const accountId = useSelectedAccountId();
-  const { data: summary, isLoading } = useInvestmentSummary(mode);
+  const [range, setRange] = useState<DateRange>(PRESETS[0]);
+  const dateRange = range.start ? { start: range.start, end: range.end } : undefined;
+
+  const { data: summary, isLoading } = useInvestmentSummary(mode, dateRange);
   const { data: rules } = useInvestmentRules();
   const createRule = useCreateInvestmentRule();
   const deleteRule = useDeleteInvestmentRule();
@@ -26,14 +31,21 @@ export default function Investments() {
   const [sortBy, setSortBy] = useState<SortField>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
+  // data bounds for the custom-range picker
+  const allDays = useByDay(mode);
+  const dataBounds = allDays.data?.length
+    ? { min: allDays.data[0].label, max: allDays.data[allDays.data.length - 1].label }
+    : undefined;
+
   const { data: txns } = useTransactions({
     mode, account_id: accountId, is_investment: true,
     search: platform?.keyword,
+    start_date: dateRange?.start, end_date: dateRange?.end,
     sort_by: sortBy, sort_dir: sortDir, page, page_size: 25,
   });
 
-  // reset to page 1 when the filter or sort changes
-  useEffect(() => { setPage(1); }, [platform, sortBy, sortDir]);
+  // reset to page 1 when a filter or sort changes
+  useEffect(() => { setPage(1); }, [platform, sortBy, sortDir, range]);
 
   function toggleSort(field: SortField) {
     if (field === sortBy) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -61,10 +73,14 @@ export default function Investments() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-slate-800">Investments</h1>
-        <p className="text-sm text-slate-400 mt-0.5">Tracked separately from spend — money moved into investments, not consumed.</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-xl font-bold text-slate-800">Investments</h1>
+          <p className="text-sm text-slate-400 mt-0.5">Tracked separately from spend — money moved into investments, not consumed.</p>
+        </div>
       </div>
+
+      <DateRangeFilter selected={range} onChange={setRange} dataBounds={dataBounds} />
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
