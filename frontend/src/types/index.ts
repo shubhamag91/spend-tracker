@@ -152,3 +152,34 @@ export interface InvestmentSummary {
   by_platform: PlatformInvest[];
 }
 
+export interface SubscriptionRule {
+  id: number;
+  name: string;
+  keyword: string;
+  type: string;
+  created_at: string;
+}
+
+export interface SubscriptionItem {
+  name: string;
+  type: string;
+  amount: number;
+  total: number;
+  count: number;
+  last_date: string | null;
+}
+
+export interface TypeBreakdown {
+  type: string;
+  total: number;
+  count: number;
+}
+
+export interface SubscriptionSummary {
+  total: number;
+  monthly_estimate: number;
+  service_count: number;
+  by_type: TypeBreakdown[];
+  items: SubscriptionItem[];
+}
+

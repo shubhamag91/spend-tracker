@@ -346,3 +346,54 @@ def test_investment_rules_and_manual_toggle(client):
     # is_investment filter on the transactions list
     only_inv = client.get("/api/transactions?mode=real&is_investment=true").json()
     assert only_inv["total"] == 1 and only_inv["items"][0]["description"].endswith("LENDBOX")
+
+
+def test_recurring_requires_consistent_amount_and_cadence(client):
+    from datetime import date
+    db = TestingSession()
+    def txn(desc, amt, d, rh):
+        return Transaction(date=d, amount=amt, transaction_type="debit", description=desc,
+                           source="t", data_mode="real", row_hash=rh)
+    db.add_all([
+        # genuine: same amount, ~monthly -> recurring
+        txn("RENT GUY", 40000.0, date(2025, 3, 1), "r1"),
+        txn("RENT GUY", 40000.0, date(2025, 4, 1), "r2"),
+        txn("RENT GUY", 40000.0, date(2025, 5, 1), "r3"),
+        # two unrelated payments to a person: wildly different amounts -> NOT recurring
+        txn("RANDO PERSON", 3000.0, date(2025, 3, 5), "r4"),
+        txn("RANDO PERSON", 70000.0, date(2025, 4, 8), "r5"),
+        # two payments days apart -> NOT recurring (clustered)
+        txn("SPLIT PAY", 5000.0, date(2025, 3, 10), "r6"),
+        txn("SPLIT PAY", 5200.0, date(2025, 3, 12), "r7"),
+    ])
+    db.commit(); db.close()
+
+    names = [r["name"] for r in client.get("/api/analytics/recurring?mode=real").json()]
+    assert "RENT GUY" in names
+    assert "RANDO PERSON" not in names
+    assert "SPLIT PAY" not in names
+
+
+def test_subscriptions_detection_by_type(client):
+    from datetime import date
+    # default rules aren't seeded in tests; create them explicitly
+    assert client.post("/api/subscription-rules", json={"name": "Netflix", "keyword": "netflix", "type": "OTT"}).status_code == 201
+    assert client.post("/api/subscription-rules", json={"name": "Claude", "keyword": "anthropic", "type": "AI"}).status_code == 201
+    assert client.post("/api/subscription-rules", json={"name": "Netflix", "keyword": "netflix", "type": "OTT"}).status_code == 409  # dup keyword
+
+    db = TestingSession()
+    db.add_all([
+        Transaction(date=date(2025, 5, 1), amount=649.0, transaction_type="debit", description="NETFLIX SUBSCRIPTION",
+                    source="t", data_mode="real", row_hash="s1"),
+        Transaction(date=date(2025, 5, 2), amount=2000.0, transaction_type="debit", description="EMI ANTHROPIC CLAUDE SUB",
+                    source="t", data_mode="real", row_hash="s2"),
+        Transaction(date=date(2025, 5, 3), amount=500.0, transaction_type="debit", description="SWIGGY",
+                    source="t", data_mode="real", row_hash="s3"),  # not a subscription
+    ])
+    db.commit(); db.close()
+
+    s = client.get("/api/subscriptions/summary?mode=real").json()
+    assert s["service_count"] == 2
+    assert s["total"] == 2649.0
+    by_type = {b["type"]: b["total"] for b in s["by_type"]}
+    assert by_type == {"AI": 2000.0, "OTT": 649.0}

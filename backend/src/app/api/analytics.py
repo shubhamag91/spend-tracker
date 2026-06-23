@@ -474,16 +474,28 @@ def recurring(
         dates = sorted(_as_date(r.date) for r in items)
         amounts = [float(r.amount) for r in items]
         total = sum(amounts)
-        # cadence = median gap between consecutive occurrences
+
+        # A real recurring charge looks like a subscription: roughly the SAME amount
+        # each time, on a PERIODIC cadence. Two unrelated payments to the same payee
+        # (very different amounts, or days apart) are not recurring.
+        lo, hi = min(amounts), max(amounts)
+        if lo <= 0 or hi / lo > 1.5:        # amounts vary by more than 50% → not recurring
+            continue
         gaps = [(dates[i + 1] - dates[i]).days for i in range(len(dates) - 1)]
-        gaps = [g for g in gaps if g > 0] or [30]
+        gaps = [g for g in gaps if g > 0]
+        if not gaps:
+            continue
         median_gap = sorted(gaps)[len(gaps) // 2]
+        if median_gap < 6:                  # clustered within days → not a periodic charge
+            continue
         if median_gap <= 10:
             frequency = "weekly"
         elif median_gap <= 45:
             frequency = "monthly"
-        else:
+        elif median_gap <= 100:
             frequency = "quarterly"
+        else:                               # too sparse to call recurring in this window
+            continue
         cat_counts = Counter(r.category for r in items)
         scored.append((
             total,
