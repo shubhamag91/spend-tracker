@@ -117,7 +117,7 @@ export default function Dashboard() {
       ) : (
       <>
       {/* Hero — the wallet story: loaded → invested + spent + unspent */}
-      <div className="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-3xl p-7 text-white shadow-lg shadow-indigo-200/50">
+      <div className="bg-gradient-to-br from-[#3b3f63] to-[#262a40] rounded-3xl p-7 text-white shadow-lg shadow-black/20 ring-1 ring-white/5">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
             <p className="text-indigo-200 text-sm font-medium">You spent</p>
