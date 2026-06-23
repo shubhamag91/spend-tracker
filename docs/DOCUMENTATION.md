@@ -507,10 +507,25 @@ npm run dev
 curl -X POST http://localhost:8000/api/demo/generate
 ```
 
+**Single-server mode (one process).** The two servers above are a *development*
+setup — Vite gives hot-reload + proxies `/api`. To run everything as **one** process
+(no Node server at runtime), build the frontend once and let FastAPI serve it:
+
+```bash
+cd frontend && npm run build          # produces frontend/dist/
+cd ../backend && PORT=8001 python scripts/run.py
+# whole app — UI + API — at http://localhost:8001
+```
+
+When `frontend/dist/` exists, `main.py` mounts it: static assets under `/assets`,
+a catch-all serving `index.html` for SPA routes, and the API/`/docs` still under
+`/api` and `/docs`. Rebuild the frontend whenever its code changes. (This block is a
+no-op until you build, so the dev two-server flow is unaffected.)
+
 **Changing the ports.** The backend port defaults to `8000` but honours a `PORT`
-env var (`PORT=8001 python scripts/run.py`). To keep the frontend's `/api` proxy
-pointed at it, start Vite with a matching `VITE_API_PORT` (`VITE_API_PORT=8001 npm
-run dev`). Useful when something else already owns `8000`.
+env var (`PORT=8001 python scripts/run.py`). For the *dev* two-server flow, start
+Vite with a matching `VITE_API_PORT` (`VITE_API_PORT=8001 npm run dev`) so its
+`/api` proxy points at the backend. Useful when something else already owns `8000`.
 
 ---
 

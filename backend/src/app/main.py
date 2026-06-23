@@ -1,8 +1,11 @@
 import json
 import logging
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from app.config import settings
 from app.database import engine, SessionLocal, Base
 from app.models import Account, Category, InvestmentRule, Transaction, IngestLog  # noqa: F401 — ensures models are registered
@@ -73,3 +76,26 @@ app.include_router(demo.router, prefix="/api")
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# ── Single-server mode ──────────────────────────────────────────────────────────
+# Serve the built frontend (frontend/dist) from this same FastAPI process, so the
+# whole app runs on one port — no separate Node server needed. This block is a
+# no-op until you build the frontend (`cd frontend && npm run build`); during UI
+# development you can still run the Vite dev server for hot-reload instead.
+_FRONTEND_DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
+if _FRONTEND_DIST.is_dir():
+    _ASSETS = _FRONTEND_DIST / "assets"
+    if _ASSETS.is_dir():
+        app.mount("/assets", StaticFiles(directory=_ASSETS), name="assets")
+
+    @app.get("/{full_path:path}")
+    def serve_spa(full_path: str):
+        # static file if it exists (favicon, etc.), else index.html for SPA routes.
+        # API routes are registered above, so they take precedence over this catch-all.
+        candidate = _FRONTEND_DIST / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(_FRONTEND_DIST / "index.html")
+
+    logger.info("single-server mode: serving frontend from %s", _FRONTEND_DIST)
