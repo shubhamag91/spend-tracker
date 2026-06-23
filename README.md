@@ -39,6 +39,7 @@ toggle for sharing without exposing real finances.
 - **Auto-ingestion**: Drop a CSV / PDF / XLS / XLSX bank statement into `backend/data/watched_folder/` and it ingests automatically
 - **Manual upload**: Drag-and-drop upload from the dashboard UI
 - **Multi-bank support**: HDFC, ICICI, and a generic CSV fallback via a registry pattern; PDF (pdfplumber) and Excel (openpyxl/xlrd) parsers
+- **Credit-card statements**: Dedicated PDF parsers for HDFC, SBI, Axis, and American Express cards (password-protected statements decrypted via pypdf); card charges become per-merchant spend, card payments/cashback stay out of income
 - **Smart classification**: Auto-detects internal transfers (self top-ups) and investments (Grip, Zerodha, Groww, SIPs…) and keeps them out of "spend"
 - **Cross-account transfer detection**: Moves between two of your own accounts are matched (debit↔credit) and excluded from spend & income
 - **Auto-categorization**: Editable keyword rules assign categories (Food, Transport, Groceries…)
@@ -131,7 +132,7 @@ spend-tracker/
 │   │   │   ├── normalizer.py    # standard schema + transfer/investment flags
 │   │   │   ├── pipeline.py      # parse → normalize → categorize → dedup → DB
 │   │   │   ├── csv_parsers/     # hdfc.py, icici.py, generic.py
-│   │   │   ├── pdf_parsers/     # statement.py (pdfplumber)
+│   │   │   ├── pdf_parsers/     # statement.py + card parsers: hdfc_card, sbi_card, axis_card, amex_card
 │   │   │   └── xlsx_parser.py   # Excel (openpyxl/xlrd)
 │   │   ├── categorization/  # keyword-matching engine + default rules
 │   │   ├── utils/           # transfers, investments, card_payments, dedup
@@ -174,10 +175,11 @@ Full reference in [§6 of the docs](docs/DOCUMENTATION.md#6-api-reference).
 
 > 🚧 **Multi-account / multi-card** support is being introduced. Shipped — an
 > `Account` entity (bank or card), an `account_id` on every transaction,
-> account-aware dedup, the `/api/accounts` API, and cross-account transfer matching
-> (moves between your own accounts are excluded from spend/income). Next: an
-> upload-time account picker, credit-card parsers, per-account analytics, and the
-> selector UI — so the dashboard still shows one combined view for now.
+> account-aware dedup, the `/api/accounts` API, cross-account transfer matching
+> (moves between your own accounts excluded from spend/income), and credit-card
+> statement parsers (HDFC, SBI, Axis, Amex). Next: an upload-time account picker,
+> per-account analytics, and the selector UI — so the dashboard still shows one
+> combined view across all accounts for now.
 
 ## Key Design Decisions
 
@@ -203,8 +205,9 @@ source venv/bin/activate
 python -m pytest -q          # pytest.ini adds src/ to the path
 ```
 
-## Adding a New Bank
+## Adding a New Bank or Card
 
-1. Create `backend/src/app/ingestion/csv_parsers/yourbank.py`
-2. Subclass `BaseParser`; implement `can_parse()` (inspect your bank's unique column headers) and `parse()` (return a `list[RawTransaction]`)
-3. Register it in `backend/src/app/ingestion/registry.py` — add an instance to `_PARSERS` **before** `GenericCsvParser`
+1. Create the parser — `csv_parsers/yourbank.py` for a CSV/XLS bank export, or `pdf_parsers/yourcard.py` for a card statement (see `hdfc_card.py`, `sbi_card.py`, `axis_card.py`, `amex_card.py`)
+2. Subclass `BaseParser`; implement `can_parse()` (inspect unique column headers, or for a PDF open it and match an issuer marker) and `parse()` (return a `list[RawTransaction]`)
+3. Register it in `backend/src/app/ingestion/registry.py` — add an instance to `_PARSERS` **before** the generic fallbacks (PDF parsers must precede `PdfStatementParser`)
+4. For a card, add its `SOURCE_NAME` to `_CARD_SOURCES` in `ingestion/normalizer.py` so its credits are treated as settlement, not income

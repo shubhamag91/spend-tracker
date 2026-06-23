@@ -7,13 +7,14 @@ API, backend internals, and how each number is computed.
 
 > **🚧 Multi-account / multi-card support is being introduced.** Shipped so far: an
 > `Account` entity (bank or card), an `account_id` on every transaction,
-> account-aware deduplication, the `/api/accounts` CRUD API (§6, §8), and
-> **cross-account transfer detection** — moves between two of your own accounts are
-> matched and excluded from spend/income (§4.1). Still in progress: an upload-time
-> account picker (tagging is currently done at import time, not yet in the UI),
-> per-account analytics filtering, the account-selector UI, and credit-card
-> statement parsers. Until those land, the dashboard presents a single combined
-> view. See the [ROADMAP](ROADMAP.md#multi-account--multi-bank).
+> account-aware deduplication, the `/api/accounts` CRUD API (§6, §8),
+> **cross-account transfer detection** (§4.1), and **credit-card statement parsers**
+> for HDFC, SBI, Axis, and American Express — card charges become per-merchant spend
+> while card payments/cashback are kept out of income (§4.3, §7). Still in progress:
+> an upload-time account picker (tagging is currently done at import time, not yet in
+> the UI), per-account analytics filtering, and the account-selector UI. Until those
+> land, the dashboard presents a single combined view across all accounts. See the
+> [ROADMAP](ROADMAP.md#multi-account--multi-bank).
 
 ## Table of contents
 1. [Overview](#1-overview)
@@ -35,8 +36,9 @@ API, backend internals, and how each number is computed.
 
 ## 1. Overview
 
-Spend Tracker ingests bank-statement exports (CSV / XLS / XLSX), classifies every
-transaction, and turns them into a dashboard that answers three questions:
+Spend Tracker ingests bank- and credit-card-statement exports (CSV / XLS / XLSX /
+PDF), classifies every transaction, and turns them into a dashboard that answers
+three questions:
 
 1. **What are my major spends?**
 2. **What are my recurring spends?**
@@ -52,7 +54,8 @@ the entire model (see §2).
 |---|---|
 | Auto-ingestion | Drop a bank export into `backend/data/watched_folder/` — it ingests automatically |
 | Manual upload | Drag-and-drop import from the dashboard |
-| Multi-bank support | HDFC, ICICI, and a generic CSV fallback; Excel (XLS/XLSX) |
+| Multi-bank support | HDFC, ICICI, and a generic CSV fallback; Excel (XLS/XLSX); PDF bank statements |
+| Credit-card statements | Dedicated PDF parsers for HDFC, SBI, Axis, and American Express cards (incl. password-protected) |
 | Smart classification | Auto-detects internal transfers (top-ups) and investments (§4) |
 | Auto-categorization | Keyword matching assigns categories (Food, Transport, …) |
 | Analytics | Wallet breakdown, category spend, weekly velocity, day-of-week heatmap, top merchants, recurring detection, insights |
@@ -176,12 +179,23 @@ A debit is an investment when it goes to a broking/MF/SIP platform.
 
 Detector: `backend/src/app/utils/investments.py` · keywords in `config.py` → `investment_keywords`
 
-### 4.3 How the flags affect analytics
-| Bucket | Internal transfers | Investments |
-|---|---|---|
-| **Spend** analytics (all `/analytics/*` except `/wallet`) | excluded | excluded |
-| **Wallet** view (`/analytics/wallet`) | counted as *Loaded* | counted as *Invested* |
-| **Transactions** list | shown, badged `↔ Internal`, muted | shown |
+### 4.3 `is_card_payment` — card settlement, not spend or income
+Two cases, both kept out of the numbers so card money is counted once:
+- A **debit on a bank account** paying a card bill (`CRED CLUB`, `CREDIT CARD`…) —
+  excluded from spend (the real consumption is the itemised card charges).
+- **Any credit on a card statement** (payment received, cashback, refund) — excluded
+  from income; a card never earns income, it only gets settled.
+
+Card *debits* (the charges themselves) are real per-merchant **spend**. Set in the
+normalizer (`_CARD_SOURCES`) · bank-side keywords in `config.py` → `card_payment_keywords`.
+
+### 4.4 How the flags affect analytics
+| Bucket | Internal transfers | Investments | Card payments |
+|---|---|---|---|
+| **Spend** analytics (all `/analytics/*` except `/wallet`) | excluded | excluded | excluded |
+| **Income** views (`/income-*`) | excluded | excluded | excluded |
+| **Wallet** view (`/analytics/wallet`) | counted as *Loaded* | counted as *Invested* | counted as *Card bills* |
+| **Transactions** list | shown, badged `↔ Internal`, muted | shown | shown |
 
 ---
 
@@ -282,18 +296,18 @@ Interactive API docs (Swagger) at `http://localhost:8000/docs`.
 ## 7. Backend internals
 
 Stack: **Python 3.9+**, **FastAPI**, **SQLAlchemy**, **SQLite**, **Pydantic**,
-**watchdog**, **openpyxl/xlrd**.
+**watchdog**, **openpyxl/xlrd**, **pdfplumber/pypdf**.
 
 ### Ingestion pipeline
 ```
-File (CSV/XLS/XLSX)
-   → Parser Registry   (tries HDFC → ICICI → XLSX → generic CSV)
-   → RawTransaction[]  (bank-specific fields, raw strings)
-   → Normalizer        (standard schema; sets is_internal_transfer + is_investment)
+File (CSV / XLS / XLSX / PDF)
+   → Parser Registry   (bank CSV → card PDFs → generic PDF/XLSX → generic CSV)
+   → RawTransaction[]  (source-specific fields, raw strings)
+   → Normalizer        (standard schema; sets is_internal_transfer / is_investment / is_card_payment)
    → Categorizer       (keyword match → category_id)
-   → Dedup guard       (SHA-256 row hash UNIQUE, scoped per account)
+   → Dedup guard       (SHA-256 row hash UNIQUE, scoped per account; in-file repeats kept)
    → SQLite
-   → Reconcile         (re-pair cross-account transfers; §4.1)
+   → Reconcile         (re-pair cross-account bank transfers; §4.1)
 ```
 Entry points: the file watcher and the upload API both funnel into the same
 pipeline. `run_ingestion(...)` and `normalize_and_insert(...)` accept an optional
@@ -309,13 +323,23 @@ VPA handles, reference numbers, and trailing notes. The `/analytics/recurring`
 endpoint groups on this key, so the same payee with a different reference each time
 collapses into one recurring entry instead of fragmenting.
 
-### Parser registry & adding a bank
+### Parser registry & adding a source
 Each parser implements `can_parse(filepath, headers)` and `parse(filepath)`
 (`app/ingestion/base.py`). The registry tries parsers in priority order — specific
-banks first, generic fallback last — so adding a bank needs only a new file:
-1. Create `backend/src/app/ingestion/csv_parsers/yourbank.py`
-2. Subclass `BaseParser`; implement `can_parse()` (inspect unique column headers) and `parse()`
-3. Register it in `ingestion/registry.py` **before** `GenericCsvParser`
+banks/cards first, generic fallback last — so adding a source needs only a new file:
+1. Create the parser, e.g. `csv_parsers/yourbank.py` or `pdf_parsers/yourcard.py`
+2. Subclass `BaseParser`; implement `can_parse()` (inspect unique headers, or for a
+   PDF open it and look for an issuer marker) and `parse()` → `list[RawTransaction]`
+3. Register it in `ingestion/registry.py` **before** the generic fallbacks
+   (CSV parsers route by header; PDF parsers must precede `PdfStatementParser`)
+
+**Credit-card parsers** live in `pdf_parsers/` — `hdfc_card`, `sbi_card`, `axis_card`,
+`amex_card`. Each detects its issuer from the first page and parses one transaction
+per line; direction comes from an explicit `D`/`C` / `Dr`/`Cr` marker where the
+issuer prints one (SBI, Axis) or from keywords otherwise (HDFC, Amex). Any source
+listed in the normalizer's `_CARD_SOURCES` has its credits treated as card
+settlement, not income (§4.3). Password-protected statements (e.g. Axis) are
+decrypted with `pypdf` before parsing.
 
 ### Categorization engine
 `app/categorization/` — categories + keyword lists seeded from `rules.py` at
@@ -339,6 +363,10 @@ is stateless. The frontend Zustand store includes `mode` in every query key.
   `account_id` means the *same* charge (same date / amount / description) seen in two
   different accounts — e.g. a ₹200 Swiggy order on both your HDFC and Yes Bank — is
   kept as two rows instead of being silently collapsed into one.
+- **In-file repeats** — a single statement can legitimately list the same charge
+  more than once (e.g. four identical ₹2,000 card charges in a day). The Nth repeat
+  within one file gets an occurrence suffix on its row hash so it survives, while
+  re-importing the same file still reproduces the suffixes and dedups.
 
 ### Schema migrations
 Tables are created with `Base.metadata.create_all` at startup, which builds *new*
@@ -426,7 +454,7 @@ run dev`). Useful when something else already owns `8000`.
 ## 11. Testing
 
 ```bash
-cd backend && python -m pytest -q     # 32 passing
+cd backend && python -m pytest -q     # 33 passing
 ```
 - `test_ingestion.py` — parser registry, normalizer, dedup (incl. per-account row-hash), internal-transfer detection
 - `test_api.py` — API integration tests (in-memory SQLite), incl. accounts CRUD + account-tagged transactions
@@ -462,7 +490,7 @@ From the June 2026 data audit — these shape what the dashboard can show today:
 
 | Priority | Item |
 |---|---|
-| 🔴 P0 | Multi-account & multi-card — _in progress;_ data-model foundation shipped (Account entity, `account_id`, account-aware dedup, accounts API). Next: ingestion tagging, credit-card parsers, per-account analytics + selector UI |
+| 🔴 P0 | Multi-account & multi-card — _in progress;_ shipped: Account entity, account-aware dedup, accounts API, cross-account transfer matching, and credit-card parsers (HDFC/SBI/Axis/Amex). Next: upload-time account tagging UI, per-account analytics + selector UI |
 | 🔴 P0 | Bulk-categorize queue — clear the 72% uncategorized fast |
 | 🔴 P0 | Merchant normalization (collapse brand variants) |
 | 🟠 P1 | "Big purchases — identify these" strip for large one-offs |

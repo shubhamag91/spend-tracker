@@ -63,6 +63,7 @@ Core ingestion, categorization, and visualization.
 
 - [x] **Account model + account-aware dedup + `/api/accounts`** (Phase 1 — see Multi-account section)
 - [x] **Cross-account transfer matching** — debit↔credit pairing across accounts, excluded from spend/income
+- [x] **Credit-card statement parsers** — HDFC, SBI, Axis, American Express (PDF, incl. password-protected); card charges = spend, card credits excluded from income
 - [x] **Recurring detection rewrite** — group by `normalize_merchant` so reference-numbered payees stop fragmenting; inferred weekly/monthly/quarterly cadence
 - [x] **Sort transactions by amount** — `sort_by`/`sort_dir` on the API + clickable Date/Amount column headers
 
@@ -92,14 +93,15 @@ reclassified as an internal transfer (so spend is never double-counted).
 
 **Phase 2+ — remaining**
 - [x] **Cross-account (bank↔bank) transfer matching** — `reconcile_internal_transfers` pairs a debit in one account with the matching credit in another and excludes both from spend/income; runs after ingestion + `POST /transactions/reconcile-transfers`
+- [x] **Credit-card statement parsers** — `hdfc_card`, `sbi_card`, `axis_card`, `amex_card` (PDF); password-protected statements decrypted via `pypdf`. Card charges = per-merchant spend; card credits (payment/cashback/refund) excluded from income via `is_card_payment`
+- [x] **In-file duplicate handling** — identical repeated charges in one statement are preserved (occurrence-suffixed row hash) instead of collapsing
 - [~] **Statement tagging** — account tagging works at import time (`account_id` threaded through ingestion); upload-time picker UI + per-account watched sub-folders still to do
-- [ ] **Credit-card statement parsers** — verify/extend parsing for card-issuer exports
-- [ ] **Bank↔card reclassification & wallet math** — card bill-payments become transfers; redefined spend = card charges + direct bank debits
+- [ ] **Bank↔card reconciliation refinement** — currently the bank's lump card-bill payment is excluded from spend and card charges are counted (no double-count); explicit bank-payment↔card-statement linking is not attempted (CRED aggregates payments)
 - [ ] **Per-account analytics** — `account_id` filter across all endpoints
 - [ ] **Account selector UI** — combined view + drill-into-one-account filter
 - [x] **Inter-account transfer detection** — name-based `is_internal_transfer` for single statements; superseded by cross-account matching above for tagged data
 - [ ] **Cross-account net-worth snapshot** — needs balance data in statements
-- [ ] **New bank parsers** — Axis, Kotak, SBI, Yes Bank, Paytm, PhonePe (Yes Bank PDF currently parses via the generic PDF parser)
+- [ ] **New bank parsers** — Kotak, Paytm, PhonePe (Axis & SBI now have card parsers; Yes Bank PDF parses via the generic PDF parser)
 
 ### Data export & sharing
 - [ ] **CSV export** — download filtered transactions
