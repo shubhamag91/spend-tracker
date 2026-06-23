@@ -22,6 +22,7 @@ class PlatformInvest(BaseModel):
     name: str
     total: float
     count: int
+    keyword: Optional[str] = None   # description substring to filter this platform's transactions
 
 
 class InvestmentSummary(BaseModel):

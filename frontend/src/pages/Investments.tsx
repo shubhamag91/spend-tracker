@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMode } from '../store/demoMode';
 import {
   useInvestmentSummary, useInvestmentRules,
   useCreateInvestmentRule, useDeleteInvestmentRule, useSetInvestment,
 } from '../hooks/useInvestments';
 import { useSelectedAccountId } from '../store/selectedAccount';
-import { useTransactions } from '../hooks/useTransactions';
+import { useTransactions, type SortField, type SortDir } from '../hooks/useTransactions';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
 
@@ -21,11 +21,27 @@ export default function Investments() {
   const [label, setLabel] = useState('');
   const [rulesOpen, setRulesOpen] = useState(false);  // collapsed by default — guards against accidental edits
   const [page, setPage] = useState(1);
+  // null = all investments; else filter the list to one platform
+  const [platform, setPlatform] = useState<{ name: string; keyword: string } | null>(null);
+  const [sortBy, setSortBy] = useState<SortField>('amount');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   const { data: txns } = useTransactions({
     mode, account_id: accountId, is_investment: true,
-    sort_by: 'amount', sort_dir: 'desc', page, page_size: 25,
+    search: platform?.keyword,
+    sort_by: sortBy, sort_dir: sortDir, page, page_size: 25,
   });
+
+  // reset to page 1 when the filter or sort changes
+  useEffect(() => { setPage(1); }, [platform, sortBy, sortDir]);
+
+  function toggleSort(field: SortField) {
+    if (field === sortBy) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortBy(field); setSortDir('desc'); }
+  }
+  function selectPlatform(name: string, kw: string) {
+    setPlatform((p) => (p?.keyword === kw ? null : { name, keyword: kw }));  // click again to clear
+  }
 
   function addRule(e: React.FormEvent) {
     e.preventDefault();
@@ -71,29 +87,42 @@ export default function Investments() {
         {/* Left: by-platform + transactions */}
         <div className="lg:col-span-2 space-y-5">
           <div className="bg-white rounded-xl border border-slate-200 p-5">
-            <h2 className="font-semibold text-slate-800 mb-3">By platform</h2>
+            <h2 className="font-semibold text-slate-800 mb-3">By platform <span className="text-xs font-normal text-slate-400">· click to filter the list</span></h2>
             {platforms.length === 0 ? (
               <p className="text-sm text-slate-400">No investments tagged yet. Add a rule on the right, or mark a transaction as investment.</p>
             ) : (
               <div className="space-y-2.5">
-                {platforms.map((p) => (
-                  <div key={p.name}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-slate-700 font-medium">{p.name} <span className="text-slate-400 font-normal">· {p.count}×</span></span>
-                      <span className="text-slate-800 font-semibold">{formatCurrency(p.total)}</span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(p.total / maxTotal) * 100}%` }} />
-                    </div>
-                  </div>
-                ))}
+                {platforms.map((p) => {
+                  const active = platform?.keyword === p.keyword;
+                  return (
+                    <button
+                      key={p.name}
+                      onClick={() => p.keyword && selectPlatform(p.name, p.keyword)}
+                      className={`w-full text-left rounded-lg px-2 py-1.5 -mx-2 transition-colors ${active ? 'bg-indigo-50 ring-1 ring-indigo-200' : 'hover:bg-slate-50'}`}
+                    >
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-slate-700 font-medium">{p.name} <span className="text-slate-400 font-normal">· {p.count}×</span></span>
+                        <span className="text-slate-800 font-semibold">{formatCurrency(p.total)}</span>
+                      </div>
+                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(p.total / maxTotal) * 100}%` }} />
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-800">Investment transactions</h2>
+            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+              <h2 className="font-semibold text-slate-800 flex items-center gap-2">
+                {platform ? <>Showing: <span className="text-indigo-700">{platform.name}</span></> : 'Investment transactions'}
+                {platform && (
+                  <button onClick={() => setPlatform(null)} className="text-xs font-normal text-slate-400 hover:text-red-600 border border-slate-200 rounded-full px-2 py-0.5">clear ×</button>
+                )}
+                <span className="text-xs font-normal text-slate-400">({txns?.total ?? 0})</span>
+              </h2>
               <div className="flex items-center gap-2 text-xs">
                 <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-2 py-1 rounded border border-slate-200 disabled:opacity-40 hover:bg-slate-50">Prev</button>
                 <span className="text-slate-500">{page} / {txns?.total_pages ?? 1}</span>
@@ -104,6 +133,22 @@ export default function Investments() {
               <div className="h-32 flex items-center justify-center text-slate-400 text-sm">No investment transactions</div>
             ) : (
               <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
+                  <tr>
+                    <th className="px-4 py-2 text-left">
+                      <button onClick={() => toggleSort('date')} className={`inline-flex items-center gap-1 hover:text-slate-700 ${sortBy === 'date' ? 'text-slate-700 font-semibold' : ''}`}>
+                        Date <span className="text-[10px]">{sortBy === 'date' ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}</span>
+                      </button>
+                    </th>
+                    <th className="px-4 py-2 text-left">Description</th>
+                    <th className="px-4 py-2 text-right">
+                      <button onClick={() => toggleSort('amount')} className={`inline-flex items-center gap-1 hover:text-slate-700 ${sortBy === 'amount' ? 'text-slate-700 font-semibold' : ''}`}>
+                        Amount <span className="text-[10px]">{sortBy === 'amount' ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}</span>
+                      </button>
+                    </th>
+                    <th></th>
+                  </tr>
+                </thead>
                 <tbody className="divide-y divide-slate-100">
                   {txns?.items.map((t) => (
                     <tr key={t.id} className="hover:bg-slate-50">

@@ -112,19 +112,30 @@ def investments_summary(
             label_for_keyword[r.keyword.upper()] = r.label
     keywords = list(label_for_keyword.keys())
 
-    def platform_for(desc: str) -> str:
+    def platform_for(desc: str):
         up = (desc or "").upper()
         for k in keywords:
             if k in up:
-                return label_for_keyword[k]
-        return normalize_merchant(desc)
+                return label_for_keyword[k], k   # (display label, matched keyword)
+        return normalize_merchant(desc), None     # manually tagged, no keyword
 
-    groups: dict[str, list[float]] = collections.defaultdict(list)
+    groups: dict[str, dict] = collections.defaultdict(lambda: {"amounts": [], "keywords": collections.Counter()})
     for t in txns:
-        groups[platform_for(t.description)].append(t.amount)
+        label, kw = platform_for(t.description)
+        groups[label]["amounts"].append(t.amount)
+        if kw:
+            groups[label]["keywords"][kw] += 1
 
     by_platform = sorted(
-        (PlatformInvest(name=k, total=round(sum(v), 2), count=len(v)) for k, v in groups.items()),
+        (
+            PlatformInvest(
+                name=label, total=round(sum(g["amounts"]), 2), count=len(g["amounts"]),
+                # the keyword to filter this platform's transactions (most common match,
+                # else the label itself for manually-tagged groups)
+                keyword=(g["keywords"].most_common(1)[0][0] if g["keywords"] else label),
+            )
+            for label, g in groups.items()
+        ),
         key=lambda p: p.total,
         reverse=True,
     )

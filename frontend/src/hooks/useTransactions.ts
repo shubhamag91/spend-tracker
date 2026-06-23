@@ -12,6 +12,7 @@ interface TransactionFilter {
   end_date?: string;
   category_id?: number;
   is_investment?: boolean;
+  search?: string;
   sort_by?: SortField;
   sort_dir?: SortDir;
   page?: number;
@@ -25,6 +26,7 @@ export function useTransactions(filter: TransactionFilter) {
   if (filter.end_date) params.end_date = filter.end_date;
   if (filter.category_id) params.category_id = filter.category_id;
   if (filter.is_investment != null) params.is_investment = filter.is_investment;
+  if (filter.search) params.search = filter.search;
   if (filter.sort_by) params.sort_by = filter.sort_by;
   if (filter.sort_dir) params.sort_dir = filter.sort_dir;
   params.page = filter.page ?? 1;

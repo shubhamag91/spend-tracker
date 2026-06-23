@@ -145,6 +145,7 @@ export interface PlatformInvest {
   name: string;
   total: number;
   count: number;
+  keyword: string | null;
 }
 
 export interface InvestmentSummary {

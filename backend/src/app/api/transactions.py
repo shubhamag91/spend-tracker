@@ -28,6 +28,7 @@ def list_transactions(
     category_id: Optional[int] = None,
     transaction_type: Optional[str] = None,
     is_investment: Optional[bool] = None,
+    search: Optional[str] = None,
     sort_by: str = Query("date", pattern="^(date|amount)$"),
     sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     page: int = Query(1, ge=1),
@@ -47,6 +48,8 @@ def list_transactions(
         q = q.filter(Transaction.transaction_type == transaction_type)
     if is_investment is not None:
         q = q.filter(Transaction.is_investment == is_investment)
+    if search:
+        q = q.filter(Transaction.description.ilike(f"%{search}%"))
 
     total = q.count()
     sort_col = _SORTABLE[sort_by]

@@ -503,3 +503,17 @@ def test_investment_rule_label_in_breakdown(client):
     s = client.get("/api/investments/summary?mode=real").json()
     assert s["total_invested"] == 400000.0
     assert s["by_platform"][0]["name"] == "Grip"
+
+
+def test_transactions_search_filter(client):
+    from datetime import date
+    db = TestingSession()
+    db.add_all([
+        Transaction(date=date(2025, 5, 1), amount=15000.0, transaction_type="debit",
+                    description="ACH D- INDIAN CLEARING CORP-X1", source="t", data_mode="real", row_hash="sf1"),
+        Transaction(date=date(2025, 5, 2), amount=500.0, transaction_type="debit",
+                    description="SWIGGY", source="t", data_mode="real", row_hash="sf2"),
+    ])
+    db.commit(); db.close()
+    r = client.get("/api/transactions?mode=real&search=indian%20clearing").json()
+    assert r["total"] == 1 and "INDIAN CLEARING" in r["items"][0]["description"]

@@ -246,7 +246,9 @@ categorisation cache and apply to future imports.
 Manage what counts as an investment vs. spend (bank accounts only). Shows **total
 invested**, a **by-platform** breakdown (grouped by matched keyword), and the list
 of tagged investment transactions (each with an **Unmark** to send it back to
-spend). A **payee-rules** manager on the right lets you add keywords (e.g. `LENDBOX`)
+spend). **Click a platform** in the breakdown to filter the list to it, and sort by
+date or amount. A **payee-rules** manager (collapsed by default, with delete
+confirmation) lets you add keywords (e.g. `LENDBOX`) + an optional display label
 — matching bank transactions are reclassified immediately and on every future import.
 Tagging an outflow as investment removes it from spend and adds it to the wallet's
 *Invested* bucket, so "spent" reflects real consumption.
@@ -299,7 +301,7 @@ account; omit for the combined view), and optional `start_date` / `end_date` (IS
 ### Transactions — `/api/transactions`
 | Endpoint | Purpose |
 |---|---|
-| `GET ""` | Paginated list; filters: `mode`, `account_id`, `start_date`, `end_date`, `category_id`, `transaction_type`, `is_investment`, `page`, `page_size`; sort: `sort_by` (`date`\|`amount`), `sort_dir` (`asc`\|`desc`) |
+| `GET ""` | Paginated list; filters: `mode`, `account_id`, `start_date`, `end_date`, `category_id`, `transaction_type`, `is_investment`, `search` (description contains), `page`, `page_size`; sort: `sort_by` (`date`\|`amount`), `sort_dir` (`asc`\|`desc`) |
 | `POST /reconcile-transfers` | (Re)detect transfers between your own accounts and flag both sides; returns the matched pairs (§4.1) |
 | `PATCH /{id}/category` | Re-assign a transaction's category |
 | `PATCH /{id}/investment?is_investment=` | Manually mark/unmark as investment (§4.2) |
@@ -513,7 +515,7 @@ run dev`). Useful when something else already owns `8000`.
 ## 11. Testing
 
 ```bash
-cd backend && python -m pytest -q     # 43 passing
+cd backend && python -m pytest -q     # 44 passing
 ```
 - `test_ingestion.py` — parser registry, normalizer, dedup (incl. per-account row-hash), internal-transfer detection
 - `test_api.py` — API integration tests (in-memory SQLite), incl. accounts CRUD + account-tagged transactions
