@@ -23,7 +23,7 @@ export default function Investments() {
   const [page, setPage] = useState(1);
   // null = all investments; else filter the list to one platform
   const [platform, setPlatform] = useState<{ name: string; keyword: string } | null>(null);
-  const [sortBy, setSortBy] = useState<SortField>('amount');
+  const [sortBy, setSortBy] = useState<SortField>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   const { data: txns } = useTransactions({
