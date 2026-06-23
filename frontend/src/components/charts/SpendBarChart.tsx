@@ -112,7 +112,7 @@ export default function SpendBarChart({ data, isLoading, title }: Props) {
       ) : (
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={chartData} margin={{ top: 22, right: 4, left: 0, bottom: 0 }} barCategoryGap="25%">
-            <CartesianGrid strokeDasharray="3 3" stroke="#f8fafc" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#1e2940" vertical={false} />
             <XAxis
               dataKey="label"
               tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 500 }}
@@ -128,10 +128,10 @@ export default function SpendBarChart({ data, isLoading, title }: Props) {
               width={44}
             />
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc', radius: 6 } as any} />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#1e2940', radius: 6 } as any} />
             <Bar dataKey="total" radius={[5, 5, 0, 0]} maxBarSize={chartData.length <= 45 ? 28 : 48}>
               {chartData.map((entry, i) => (
-                <Cell key={i} fill={entry.total === maxVal ? '#6366f1' : '#e0e7ff'} />
+                <Cell key={i} fill={entry.total === maxVal ? '#6366f1' : '#3a3a78'} />
               ))}
               {/* Only show labels when there are few enough bars */}
               {chartData.length <= 20 && (

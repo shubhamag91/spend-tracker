@@ -54,7 +54,7 @@ export default function SpendLineChart({ data, isLoading, title }: Props) {
                 <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f8fafc" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#1e2940" vertical={false} />
             <XAxis
               dataKey="label"
               tickFormatter={formatMonthLabel}
@@ -70,7 +70,7 @@ export default function SpendLineChart({ data, isLoading, title }: Props) {
               width={44}
             />
             <Tooltip content={<CustomTooltip />} />
-            <ReferenceLine y={avg} stroke="#e0e7ff" strokeDasharray="4 4" label={{ value: 'avg', fill: '#a5b4fc', fontSize: 10, position: 'insideTopRight' }} />
+            <ReferenceLine y={avg} stroke="#3a3a78" strokeDasharray="4 4" label={{ value: 'avg', fill: '#a5b4fc', fontSize: 10, position: 'insideTopRight' }} />
             <Area
               type="monotone"
               dataKey="total"
@@ -78,7 +78,7 @@ export default function SpendLineChart({ data, isLoading, title }: Props) {
               strokeWidth={2.5}
               fill="url(#spendGradient)"
               dot={{ r: 3.5, fill: '#6366f1', strokeWidth: 0 }}
-              activeDot={{ r: 6, fill: '#6366f1', strokeWidth: 2, stroke: '#e0e7ff' }}
+              activeDot={{ r: 6, fill: '#6366f1', strokeWidth: 2, stroke: '#3a3a78' }}
             >
               <LabelList
                 dataKey="total"

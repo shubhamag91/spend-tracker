@@ -151,7 +151,7 @@ spending wallet (see [DOCUMENTATION.md §2](DOCUMENTATION.md#2-the-wallet-model-
 Candidates for future versions; priority depends on user feedback.
 
 - Mobile-responsive layout improvements
-- Dark mode
+- ~~Dark mode~~ ✅ shipped (dark theme via remapped Tailwind surface utilities under a `.dark` shell; `frontend/src/index.css`)
 - Recurring bill tracker ("Netflix due on the 15th")
 - WhatsApp / SMS transaction parsing
 - UPI transaction tagging (Google Pay, PhonePe breakdowns)
