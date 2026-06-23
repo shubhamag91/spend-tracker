@@ -262,7 +262,9 @@ grouped by **type** (Rent / Electricity / Internet / OTT / AI / …) with a head
 **per-month total**, and a manager to add a rule (name + keyword + free-form type +
 frequency) or change an existing item's frequency inline. Ships with ~25 common
 subscription services pre-loaded; add rent (landlord's name), bills, EMIs yourself.
-Spans banks and cards. Everything stays counted as spend — a reporting overlay, not
+A rule can carry an optional **min-amount floor** to separate a big recurring bill
+from small charges that share the same merchant string (e.g. a ₹5,200 electricity
+bill paid via Airtel Payments Bank vs an unrelated ₹111 charge). Spans banks and cards. Everything stays counted as spend — a reporting overlay, not
 a reclassification. (API + table are named `subscription*` internally.)
 
 ---
@@ -450,7 +452,7 @@ Indexes: `(date, data_mode)`, `(category_id)`, `(account_id)`.
 **`accounts`** — `id · name (unique) · type` (`bank`/`card`) `· issuer · last4 · created_at`
 **`categories`** — `id · name · color · keywords_json`
 **`investment_rules`** — `id · keyword (unique) · created_at` (user-defined investment payees, §4.2)
-**`subscription_rules`** — `id · name · keyword (unique) · type · frequency · created_at` (tracked subscription services, §5.6)
+**`subscription_rules`** — `id · name · keyword (unique) · type · frequency · min_amount · created_at` (tracked fixed-spend items, §5.6)
 **`ingest_log`** — `id · filename · file_hash · parser_used · rows_parsed/inserted/skipped · status · error_message · ingested_at`
 
 ---
@@ -505,7 +507,7 @@ run dev`). Useful when something else already owns `8000`.
 ## 11. Testing
 
 ```bash
-cd backend && python -m pytest -q     # 38 passing
+cd backend && python -m pytest -q     # 39 passing
 ```
 - `test_ingestion.py` — parser registry, normalizer, dedup (incl. per-account row-hash), internal-transfer detection
 - `test_api.py` — API integration tests (in-memory SQLite), incl. accounts CRUD + account-tagged transactions

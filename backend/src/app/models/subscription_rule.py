@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
-from sqlalchemy import Integer, String, DateTime
+from typing import Optional
+from sqlalchemy import Integer, String, DateTime, Float
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -22,4 +23,8 @@ class SubscriptionRule(Base):
     # Billing cadence, used to normalise each charge to a monthly cost:
     # monthly | quarterly | yearly | weekly | variable (irregular lump-sum).
     frequency: Mapped[str] = mapped_column(String, nullable=False, default="monthly")
+    # Optional amount floor — only charges >= this count, to disambiguate a big
+    # recurring bill from small payments that share the same merchant string
+    # (e.g. a ₹5,200 electricity bill vs a ₹111 charge, both "Airtel Payments Bank").
+    min_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

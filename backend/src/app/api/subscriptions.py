@@ -38,7 +38,8 @@ def create_rule(body: SubscriptionRuleCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=422, detail="Name and keyword are required")
     if db.query(SubscriptionRule).filter(SubscriptionRule.keyword == keyword).first():
         raise HTTPException(status_code=409, detail="That keyword already exists")
-    rule = SubscriptionRule(name=name, keyword=keyword, type=type_, frequency=body.frequency)
+    rule = SubscriptionRule(name=name, keyword=keyword, type=type_,
+                            frequency=body.frequency, min_amount=body.min_amount)
     db.add(rule)
     db.commit()
     db.refresh(rule)
@@ -57,6 +58,8 @@ def update_rule(rule_id: int, body: SubscriptionRuleUpdate, db: Session = Depend
         rule.type = body.type.strip() or "Other"
     if body.name is not None:
         rule.name = body.name.strip() or rule.name
+    if body.min_amount is not None:
+        rule.min_amount = body.min_amount if body.min_amount > 0 else None
     db.commit()
     db.refresh(rule)
     return rule
@@ -107,12 +110,16 @@ def subscriptions_summary(
     if span and span[0] and span[1]:
         window_months = max(1.0, (span[1] - span[0]).days / 30.44)
 
+    # Evaluate more-specific rules (with an amount floor) before generic ones, so a
+    # ₹5,200 "Airtel Payments Bank" charge matches the ≥₹1,000 rule, not a generic one.
+    rules = sorted(rules, key=lambda r: (r.min_amount is not None, r.min_amount or 0), reverse=True)
+
     by_service: dict[str, list] = collections.defaultdict(list)
     meta: dict[str, SubscriptionRule] = {}
     for t in txns:
         up = (t.description or "").upper()
         for rule in rules:
-            if rule.keyword in up:
+            if rule.keyword in up and (rule.min_amount is None or t.amount >= rule.min_amount):
                 by_service[rule.name].append(t)
                 meta[rule.name] = rule
                 break

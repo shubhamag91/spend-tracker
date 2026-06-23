@@ -160,6 +160,7 @@ export interface SubscriptionRule {
   keyword: string;
   type: string;
   frequency: Frequency;
+  min_amount: number | null;
   created_at: string;
 }
 

@@ -418,3 +418,24 @@ def test_subscription_frequency_normalises_to_monthly(client):
     client.patch(f"/api/subscription-rules/{r['id']}", json={"frequency": "monthly"})
     item = client.get("/api/subscriptions/summary?mode=real").json()["items"][0]
     assert item["monthly"] == 3717.0
+
+
+def test_subscription_min_amount_disambiguates(client):
+    from datetime import date
+    # two charges share a description; only the big one is the bill we track
+    client.post("/api/subscription-rules", json={
+        "name": "Parents electricity", "keyword": "airtel payments bank",
+        "type": "Electricity", "frequency": "monthly", "min_amount": 1000})
+    db = TestingSession()
+    db.add_all([
+        Transaction(date=date(2025, 5, 16), amount=5200.0, transaction_type="debit",
+                    description="AIRTEL PAYMENTS BANK GURGAON UTILITIES", source="t", data_mode="real", row_hash="m1"),
+        Transaction(date=date(2025, 5, 14), amount=111.0, transaction_type="debit",
+                    description="AIRTEL PAYMENTS BANK GURGAON UTILITIES", source="t", data_mode="real", row_hash="m2"),
+    ])
+    db.commit(); db.close()
+
+    s = client.get("/api/subscriptions/summary?mode=real").json()
+    assert s["service_count"] == 1
+    item = s["items"][0]
+    assert item["count"] == 1 and item["amount"] == 5200.0 and item["monthly"] == 5200.0

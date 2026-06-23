@@ -38,14 +38,17 @@ export default function Subscriptions() {
   const createRule = useCreateSubscriptionRule();
   const updateRule = useUpdateSubscriptionRule();
   const deleteRule = useDeleteSubscriptionRule();
-  const [form, setForm] = useState({ name: '', keyword: '', type: 'Rent', frequency: 'monthly' });
+  const [form, setForm] = useState({ name: '', keyword: '', type: 'Rent', frequency: 'monthly', minAmount: '' });
 
   function addRule(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim() || !form.keyword.trim()) return;
     createRule.mutate(
-      { name: form.name.trim(), keyword: form.keyword.trim(), type: form.type, frequency: form.frequency },
-      { onSuccess: () => setForm({ ...form, name: '', keyword: '' }) },
+      {
+        name: form.name.trim(), keyword: form.keyword.trim(), type: form.type, frequency: form.frequency,
+        min_amount: form.minAmount ? Number(form.minAmount) : null,
+      },
+      { onSuccess: () => setForm({ ...form, name: '', keyword: '', minAmount: '' }) },
     );
   }
 
@@ -159,6 +162,13 @@ export default function Subscriptions() {
                 {FREQUENCIES.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
+            <input
+              type="number"
+              value={form.minAmount}
+              onChange={(e) => setForm({ ...form, minAmount: e.target.value })}
+              placeholder="Min ₹ (optional — ignore smaller charges to the same payee)"
+              className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+            />
             <button type="submit" disabled={createRule.isPending} className="w-full px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50">Add item</button>
           </form>
           {createRule.isError && <p className="text-xs text-red-600 mb-2">Couldn't add — that keyword may already exist.</p>}
@@ -168,6 +178,7 @@ export default function Subscriptions() {
                 <div className="min-w-0">
                   <span className="text-sm font-medium text-slate-700 truncate">{r.name}</span>
                   <span className="text-xs text-slate-400 ml-1.5">{r.keyword}</span>
+                  {r.min_amount != null && <span className="text-[10px] text-slate-400 ml-1">≥ ₹{r.min_amount.toLocaleString('en-IN')}</span>}
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${typeClass(r.type)}`}>{r.type}</span>

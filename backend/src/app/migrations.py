@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 _ADDITIVE_COLUMNS = [
     ("transactions", "account_id", "INTEGER REFERENCES accounts(id)"),
     ("subscription_rules", "frequency", "TEXT NOT NULL DEFAULT 'monthly'"),
+    ("subscription_rules", "min_amount", "REAL"),
 ]
 
 
