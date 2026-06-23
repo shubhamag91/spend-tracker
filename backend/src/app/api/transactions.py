@@ -22,6 +22,7 @@ _SORTABLE = {
 @router.get("", response_model=TransactionPage)
 def list_transactions(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     category_id: Optional[int] = None,
@@ -33,6 +34,8 @@ def list_transactions(
     db: Session = Depends(get_db),
 ):
     q = db.query(Transaction).filter(Transaction.data_mode == mode)
+    if account_id is not None:
+        q = q.filter(Transaction.account_id == account_id)
     if start_date:
         q = q.filter(Transaction.date >= start_date)
     if end_date:

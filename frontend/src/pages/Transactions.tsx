@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMode } from '../store/demoMode';
+import { useSelectedAccountId } from '../store/selectedAccount';
 import { useTransactions, type SortField, type SortDir } from '../hooks/useTransactions';
 import { useByDay } from '../hooks/useAnalytics';
 import TransactionTable from '../components/transactions/TransactionTable';
@@ -9,6 +10,7 @@ import { useDemoModeStore } from '../store/demoMode';
 
 export default function Transactions() {
   const mode = useMode();
+  const accountId = useSelectedAccountId();
   const isDemoMode = useDemoModeStore((s) => s.isDemoMode);
   const [range, setRange] = useState<DateRange>(PRESETS[0]);
   const [page, setPage] = useState(1);
@@ -18,6 +20,9 @@ export default function Transactions() {
 
   const dateRange = range.start ? { start: range.start, end: range.end } : undefined;
 
+  // Switching account can shrink the result set — go back to page 1.
+  useEffect(() => { setPage(1); }, [accountId]);
+
   const allDays = useByDay(mode);
   const dataBounds = allDays.data?.length
     ? { min: allDays.data[0].label, max: allDays.data[allDays.data.length - 1].label }
@@ -25,6 +30,7 @@ export default function Transactions() {
 
   const { data, isLoading } = useTransactions({
     mode,
+    account_id: accountId,
     start_date: dateRange?.start,
     end_date: dateRange?.end,
     sort_by: sortBy,

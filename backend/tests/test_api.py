@@ -274,3 +274,31 @@ def test_normalizer_keeps_in_file_duplicates_and_flags_card_credits(client):
     credit = db.query(Transaction).filter(Transaction.transaction_type == "credit").one()
     assert credit.is_card_payment is True  # card credit excluded from income
     db.close()
+
+
+def test_analytics_scoped_by_account(client):
+    from datetime import date
+    from app.models.account import Account
+    db = TestingSession()
+    a = Account(name="Acct A", type="bank"); b = Account(name="Acct B", type="card")
+    db.add_all([a, b]); db.commit(); db.refresh(a); db.refresh(b)
+    db.add_all([
+        Transaction(date=date(2025, 5, 1), amount=1000.0, transaction_type="debit",
+                    description="A spend", source="t", data_mode="real", row_hash="a1", account_id=a.id),
+        Transaction(date=date(2025, 5, 2), amount=250.0, transaction_type="debit",
+                    description="B spend", source="t", data_mode="real", row_hash="b1", account_id=b.id),
+    ])
+    db.commit(); aid, bid = a.id, b.id; db.close()
+
+    combined = client.get("/api/analytics/summary?mode=real").json()
+    assert combined["total_spend"] == 1250.0 and combined["transaction_count"] == 2
+
+    only_a = client.get(f"/api/analytics/summary?mode=real&account_id={aid}").json()
+    assert only_a["total_spend"] == 1000.0 and only_a["transaction_count"] == 1
+
+    only_b = client.get(f"/api/analytics/summary?mode=real&account_id={bid}").json()
+    assert only_b["total_spend"] == 250.0
+
+    # transactions list scoped too
+    txns = client.get(f"/api/transactions?mode=real&account_id={bid}").json()
+    assert txns["total"] == 1 and txns["items"][0]["description"] == "B spend"

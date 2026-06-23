@@ -6,6 +6,15 @@ export interface Category {
   created_at: string;
 }
 
+export interface Account {
+  id: number;
+  name: string;
+  type: 'bank' | 'card';
+  issuer: string | null;
+  last4: string | null;
+  created_at: string;
+}
+
 export interface Transaction {
   id: number;
   date: string;
@@ -17,6 +26,7 @@ export interface Transaction {
   is_internal_transfer: boolean;
   created_at: string;
   category: { id: number; name: string; color: string } | null;
+  account: { id: number; name: string; type: 'bank' | 'card' } | null;
 }
 
 export interface TransactionPage {

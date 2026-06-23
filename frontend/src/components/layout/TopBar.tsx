@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import DemoModeToggle from '../shared/DemoModeToggle';
+import AccountSelector from '../shared/AccountSelector';
 
 const NAV = [
   { path: '/', label: 'Dashboard' },
@@ -43,7 +44,10 @@ export default function TopBar() {
           })}
         </nav>
       </div>
-      <DemoModeToggle />
+      <div className="flex items-center gap-4">
+        <AccountSelector />
+        <DemoModeToggle />
+      </div>
     </header>
   );
 }

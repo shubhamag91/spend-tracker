@@ -7,6 +7,7 @@ export type SortDir = 'asc' | 'desc';
 
 interface TransactionFilter {
   mode: string;
+  account_id?: number | null;
   start_date?: string;
   end_date?: string;
   category_id?: number;
@@ -18,6 +19,7 @@ interface TransactionFilter {
 
 export function useTransactions(filter: TransactionFilter) {
   const params: Record<string, string | number> = { mode: filter.mode };
+  if (filter.account_id != null) params.account_id = filter.account_id;
   if (filter.start_date) params.start_date = filter.start_date;
   if (filter.end_date) params.end_date = filter.end_date;
   if (filter.category_id) params.category_id = filter.category_id;

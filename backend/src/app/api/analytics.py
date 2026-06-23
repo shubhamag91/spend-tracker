@@ -18,9 +18,19 @@ from app.schemas.transaction import (
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
-def _base_debit_query(db, mode, start_date, end_date):
+def _mode_acct(mode, account_id):
+    """Base scope conditions shared by every analytics query: the data mode, plus
+    an optional single-account filter (None = all accounts combined). Spread into a
+    .filter(*_mode_acct(mode, account_id), …) call alongside the per-endpoint flags."""
+    conds = [Transaction.data_mode == mode]
+    if account_id is not None:
+        conds.append(Transaction.account_id == account_id)
+    return conds
+
+
+def _base_debit_query(db, mode, account_id, start_date, end_date):
     q = db.query(Transaction).filter(
-        Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False,
+        *_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False,
         Transaction.transaction_type == "debit",
     )
     if start_date:
@@ -33,16 +43,17 @@ def _base_debit_query(db, mode, start_date, end_date):
 @router.get("/summary", response_model=AnalyticsSummary)
 def summary(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     db: Session = Depends(get_db),
 ):
-    q = _base_debit_query(db, mode, start_date, end_date)
+    q = _base_debit_query(db, mode, account_id, start_date, end_date)
     total_spend = q.with_entities(func.coalesce(func.sum(Transaction.amount), 0.0)).scalar()
     count = q.count()
 
     # Credits (income/deposits)
-    cq = db.query(Transaction).filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "credit")
+    cq = db.query(Transaction).filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "credit")
     if start_date:
         cq = cq.filter(Transaction.date >= start_date)
     if end_date:
@@ -55,14 +66,14 @@ def summary(
     elif count > 0:
         result = db.query(
             func.min(Transaction.date), func.max(Transaction.date)
-        ).filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit").first()
+        ).filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit").first()
         if result and result[0] and result[1]:
             days = max(1, (result[1] - result[0]).days + 1)
 
     top_row = (
         db.query(Category.name, func.sum(Transaction.amount).label("total"))
         .join(Transaction, Transaction.category_id == Category.id)
-        .filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
+        .filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
         .group_by(Category.name)
         .order_by(func.sum(Transaction.amount).desc())
         .first()
@@ -80,12 +91,13 @@ def summary(
 @router.get("/by-day", response_model=List[TimeSeriesPoint])
 def by_day(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     db: Session = Depends(get_db),
 ):
     q = db.query(Transaction.date, func.sum(Transaction.amount).label("total")).filter(
-        Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit"
+        *_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit"
     )
     if start_date:
         q = q.filter(Transaction.date >= start_date)
@@ -98,6 +110,7 @@ def by_day(
 @router.get("/by-week", response_model=List[TimeSeriesPoint])
 def by_week(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     db: Session = Depends(get_db),
@@ -105,7 +118,7 @@ def by_week(
     q = db.query(
         func.strftime("%Y-W%W", Transaction.date).label("week"),
         func.sum(Transaction.amount).label("total"),
-    ).filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
+    ).filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
     if start_date:
         q = q.filter(Transaction.date >= start_date)
     if end_date:
@@ -117,6 +130,7 @@ def by_week(
 @router.get("/by-month", response_model=List[TimeSeriesPoint])
 def by_month(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     db: Session = Depends(get_db),
@@ -124,7 +138,7 @@ def by_month(
     q = db.query(
         func.strftime("%Y-%m", Transaction.date).label("month"),
         func.sum(Transaction.amount).label("total"),
-    ).filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
+    ).filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
     if start_date:
         q = q.filter(Transaction.date >= start_date)
     if end_date:
@@ -136,6 +150,7 @@ def by_month(
 @router.get("/by-year", response_model=List[TimeSeriesPoint])
 def by_year(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     rows = (
@@ -143,7 +158,7 @@ def by_year(
             func.strftime("%Y", Transaction.date).label("year"),
             func.sum(Transaction.amount).label("total"),
         )
-        .filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
+        .filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
         .group_by("year")
         .order_by("year")
         .all()
@@ -154,6 +169,7 @@ def by_year(
 @router.get("/by-category", response_model=List[CategorySpend])
 def by_category(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     db: Session = Depends(get_db),
@@ -163,7 +179,7 @@ def by_category(
         Category.color,
         func.sum(Transaction.amount).label("total"),
     ).join(Transaction, Transaction.category_id == Category.id).filter(
-        Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit"
+        *_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit"
     )
     if start_date:
         q = q.filter(Transaction.date >= start_date)
@@ -186,6 +202,7 @@ def by_category(
 @router.get("/insights", response_model=List[InsightItem])
 def insights(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     db: Session = Depends(get_db),
@@ -196,7 +213,7 @@ def insights(
     cat_rows = (
         db.query(Category.name, func.sum(Transaction.amount).label("total"))
         .join(Transaction, Transaction.category_id == Category.id)
-        .filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
+        .filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
     )
     if start_date:
         cat_rows = cat_rows.filter(Transaction.date >= start_date)
@@ -231,7 +248,7 @@ def insights(
 
     # --- credits / income ---
     cq = db.query(func.coalesce(func.sum(Transaction.amount), 0.0), func.count(Transaction.id)).filter(
-        Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "credit"
+        *_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "credit"
     )
     if start_date:
         cq = cq.filter(Transaction.date >= start_date)
@@ -259,7 +276,7 @@ def insights(
     # --- high frequency small spend ---
     freq_q = (
         db.query(Transaction.date, func.count(Transaction.id).label("cnt"), func.sum(Transaction.amount).label("total"))
-        .filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit", Transaction.amount < 200)
+        .filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit", Transaction.amount < 200)
     )
     if start_date:
         freq_q = freq_q.filter(Transaction.date >= start_date)
@@ -295,13 +312,14 @@ def insights(
 @router.get("/weekly-velocity", response_model=List[WeeklyVelocityPoint])
 def weekly_velocity(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     db: Session = Depends(get_db),
 ):
     rows = (
         db.query(Transaction.date, Transaction.amount)
-        .filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
+        .filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
     )
     if start_date:
         rows = rows.filter(Transaction.date >= start_date)
@@ -334,11 +352,12 @@ def weekly_velocity(
 @router.get("/heatmap", response_model=List[HeatmapCell])
 def heatmap(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     rows = (
         db.query(Transaction.date, Transaction.amount)
-        .filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
+        .filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
         .all()
     )
     if not rows:
@@ -366,6 +385,7 @@ def heatmap(
 @router.get("/top-merchants", response_model=List[MerchantSpend])
 def top_merchants(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     limit: int = Query(8, ge=1, le=20),
@@ -379,7 +399,7 @@ def top_merchants(
             func.count(Transaction.id).label("cnt"),
         )
         .outerjoin(Category, Transaction.category_id == Category.id)
-        .filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
+        .filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
     )
     if start_date:
         q = q.filter(Transaction.date >= start_date)
@@ -415,6 +435,7 @@ def _as_date(d):
 @router.get("/recurring", response_model=List[RecurringTransaction])
 def recurring(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     """Recurring spends, grouped by *normalized merchant* (not raw description).
@@ -433,7 +454,7 @@ def recurring(
         )
         .outerjoin(Category, Transaction.category_id == Category.id)
         .filter(
-            Transaction.data_mode == mode,
+            *_mode_acct(mode, account_id),
             Transaction.is_internal_transfer == False,
             Transaction.is_investment == False,
             Transaction.is_card_payment == False,
@@ -484,6 +505,7 @@ def recurring(
 @router.get("/income-monthly", response_model=List[IncomeMonthPoint])
 def income_monthly(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     rows = (
@@ -491,7 +513,7 @@ def income_monthly(
             func.strftime("%Y-%m", Transaction.date).label("month"),
             func.sum(Transaction.amount).label("total"),
         )
-        .filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "credit")
+        .filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "credit")
         .group_by("month")
         .order_by("month")
         .all()
@@ -511,13 +533,14 @@ def income_monthly(
 @router.get("/income-sources", response_model=List[IncomeSource])
 def income_sources(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     db: Session = Depends(get_db),
 ):
     q = (
         db.query(Transaction.description, func.sum(Transaction.amount).label("total"))
-        .filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "credit")
+        .filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "credit")
     )
     if start_date:
         q = q.filter(Transaction.date >= start_date)
@@ -551,6 +574,7 @@ def income_sources(
 @router.get("/savings-trajectory", response_model=List[SavingsPoint])
 def savings_trajectory(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     income_rows = (
@@ -558,7 +582,7 @@ def savings_trajectory(
             func.strftime("%Y-%m", Transaction.date).label("month"),
             func.sum(Transaction.amount).label("total"),
         )
-        .filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "credit")
+        .filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "credit")
         .group_by("month").order_by("month").all()
     )
     spend_rows = (
@@ -566,7 +590,7 @@ def savings_trajectory(
             func.strftime("%Y-%m", Transaction.date).label("month"),
             func.sum(Transaction.amount).label("total"),
         )
-        .filter(Transaction.data_mode == mode, Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
+        .filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
         .group_by("month").order_by("month").all()
     )
     income_map = {r.month: float(r.total) for r in income_rows}
@@ -592,6 +616,7 @@ def savings_trajectory(
 @router.get("/wallet", response_model=WalletSummary)
 def wallet(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     db: Session = Depends(get_db),
@@ -603,7 +628,7 @@ def wallet(
             q = q.filter(Transaction.date <= end_date)
         return q
 
-    base = db.query(Transaction).filter(Transaction.data_mode == mode)
+    base = db.query(Transaction).filter(*_mode_acct(mode, account_id))
 
     def _sum(q):
         return float(_filtered(q).with_entities(func.coalesce(func.sum(Transaction.amount), 0.0)).scalar())
