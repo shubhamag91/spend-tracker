@@ -123,7 +123,7 @@ export default function TransactionTable({ transactions, isLoading, total, page,
               <SortHeader label="Amount" field="amount" sortBy={sortBy} sortDir={sortDir} onSort={onSort} align="right" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {transactions.map((txn) => (
               <tr key={txn.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDate(txn.date)}</td>
