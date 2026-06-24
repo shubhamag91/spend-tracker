@@ -3,12 +3,10 @@ import DemoModeToggle from '../shared/DemoModeToggle';
 import AccountSelector from '../shared/AccountSelector';
 
 const NAV = [
-  { path: '/', label: 'Dashboard' },
+  { path: '/', label: 'Spends' },
   { path: '/transactions', label: 'Transactions' },
-  { path: '/investments', label: 'Investments' },
   { path: '/subscriptions', label: 'Fixed Spends' },
-  { path: '/income', label: 'Income' },
-  { path: '/categories', label: 'Categories' },
+  { path: '/investments', label: 'Investments' },
 ];
 
 export default function TopBar() {
