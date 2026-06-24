@@ -58,7 +58,7 @@ the entire model (see §2).
 | Auto-categorization | Keyword matching assigns categories (Food, Transport, …) |
 | Analytics | Wallet breakdown, category spend, weekly velocity, day-of-week heatmap, top merchants, recurring detection, insights |
 | Date filtering | This Month / Last Month / Last 30 Days / This Year / All Time + custom range clamped to your data |
-| Demo mode | Synthetic data for sharing without exposing real finances |
+| Demo mode | Synthetic data for sharing without exposing real finances — ~13 months of spend, income, investments and returns so every page is populated |
 | Deduplication | Two-level hash guards prevent double-ingestion |
 
 ---

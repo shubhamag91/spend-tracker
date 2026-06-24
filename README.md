@@ -50,7 +50,7 @@ toggle for sharing without exposing real finances.
 - **Analytics**: Wallet breakdown, category spend, weekly velocity, day-of-week heatmap, top merchants, merchant-normalized recurring detection, and plain-English insights
 - **Sortable transactions**: Sort the transactions table by date or amount
 - **Date filtering**: This Month / Last Month / Last 30 Days / This Year / All Time + a custom range clamped to your data
-- **Demo mode**: Toggle between your real data and synthetic demo data — perfect for resume/portfolio sharing
+- **Demo mode**: Toggle between your real data and synthetic demo data — perfect for resume/portfolio sharing. Demo spans ~13 months of spend, income, investments and returns, so every page (Dashboard, Income, Investments) is populated
 - **Deduplication**: Re-importing the same file is safe — file-level and row-level SHA-256 guards prevent duplicates
 
 ## The wallet model
