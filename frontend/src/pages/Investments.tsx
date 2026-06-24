@@ -136,7 +136,7 @@ export default function Investments() {
                     <th></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody>
                   {txns?.items.map((t) => (
                     <tr key={t.id} className="hover:bg-slate-50">
                       <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">{formatDate(t.date)}</td>
