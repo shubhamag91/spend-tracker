@@ -119,7 +119,8 @@ export default function Income() {
               <div className="flex items-end gap-2 h-44">
                 {months.slice(-8).map((m, i) => {
                   const isLast = i === months.slice(-8).length - 1;
-                  const h = Math.max(8, Math.round((m.actual / maxMonthly) * 160));
+                  // cap bar height so the value label + month label fit inside h-44 (no overflow into the subtitle)
+                  const h = Math.max(8, Math.round((m.actual / maxMonthly) * 120));
                   const belowExpected = m.actual < m.expected * 0.95;
                   return (
                     <div key={m.month} className="flex-1 flex flex-col items-center gap-1.5">
@@ -311,7 +312,7 @@ export default function Income() {
             <div className="flex items-end gap-2 h-36 mb-3">
               {savingsList.slice(-8).map((s, i) => {
                 const isLast = i === savingsList.slice(-8).length - 1;
-                const h = Math.max(6, Math.round((s.saved / maxSavings) * 128));
+                const h = Math.max(6, Math.round((s.saved / maxSavings) * 96));
                 return (
                   <div key={s.month} className="flex-1 flex flex-col items-center gap-1">
                     <span className="text-xs text-slate-400">{formatCurrency(s.saved)}</span>
