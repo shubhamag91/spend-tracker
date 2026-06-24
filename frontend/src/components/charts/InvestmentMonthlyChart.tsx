@@ -8,10 +8,13 @@ const INVESTED = '#6d6af0';   // indigo
 const RETURNS = '#4f9e7e';    // muted green
 
 function compactInr(v: number) {
-  if (v >= 1e7) return `₹${(v / 1e7).toFixed(1)}Cr`;
-  if (v >= 1e5) return `₹${(v / 1e5).toFixed(1)}L`;
-  if (v >= 1e3) return `₹${Math.round(v / 1e3)}k`;
-  return `₹${v}`;
+  if (!Number.isFinite(v)) return '₹0';
+  const sign = v < 0 ? '-' : '';
+  const a = Math.abs(v);
+  if (a >= 1e7) return `${sign}₹${(a / 1e7).toFixed(1)}Cr`;
+  if (a >= 1e5) return `${sign}₹${(a / 1e5).toFixed(1)}L`;
+  if (a >= 1e3) return `${sign}₹${Math.round(a / 1e3)}k`;
+  return `${sign}₹${a}`;
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {

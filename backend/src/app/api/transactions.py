@@ -26,7 +26,7 @@ def list_transactions(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     category_id: Optional[int] = None,
-    transaction_type: Optional[str] = None,
+    transaction_type: Optional[str] = Query(None, pattern="^(debit|credit)$"),
     is_investment: Optional[bool] = None,
     investment_platform: Optional[str] = None,   # filter by platform label (matches any of its keywords)
     search: Optional[str] = None,

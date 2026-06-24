@@ -52,10 +52,13 @@ DEMO_MERCHANTS: dict[str, list[tuple[str, float, float]]] = {
         ("Cult.fit Membership", 2000, 0),
         ("Diagnostic Labs", 800, 300),
     ],
+    # NOTE: keep this list free of investment-platform keywords (Zerodha/Groww/etc.) —
+    # those belong to the is_investment stream below, not spend. Otherwise they'd be
+    # counted as spend while their cousins are counted as investments (leak).
     "Finance": [
-        ("Zerodha SIP", 5000, 0),
         ("LIC Premium", 3000, 0),
-        ("Groww Investment", 2000, 1000),
+        ("Bajaj Finserv EMI", 4500, 0),
+        ("HDFC Ergo Insurance", 2200, 800),
     ],
     "Personal Care": [
         ("Naturals Salon", 600, 200),

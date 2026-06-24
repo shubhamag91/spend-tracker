@@ -121,6 +121,18 @@ def test_analytics_summary_with_data(client, seed_transactions):
     assert data["transaction_count"] == 5
 
 
+def test_analytics_summary_top_category_respects_date_range(client, seed_transactions):
+    """top_category must be date-scoped like the rest of the summary — a range with no
+    spend should report no top category, not the all-time one (regression)."""
+    # seed_transactions are in 2025-05; pick a range that excludes them all
+    r = client.get("/api/analytics/summary?mode=real&start_date=2030-01-01&end_date=2030-01-02")
+    data = r.json()
+    assert data["total_spend"] == 0.0 and data["transaction_count"] == 0
+    assert data["top_category"] is None
+    # invalid transaction_type is rejected, not silently 0-result
+    assert client.get("/api/transactions?mode=real&transaction_type=bogus").status_code == 422
+
+
 def test_analytics_by_month(client, seed_transactions):
     r = client.get("/api/analytics/by-month?mode=real")
     assert r.status_code == 200

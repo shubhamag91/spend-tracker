@@ -70,10 +70,12 @@ def summary(
         if result and result[0] and result[1]:
             days = max(1, (result[1] - result[0]).days + 1)
 
+    # date-scoped like every other figure in this response (was all-time before, so
+    # an empty range still surfaced an all-time top category)
     top_row = (
-        db.query(Category.name, func.sum(Transaction.amount).label("total"))
-        .join(Transaction, Transaction.category_id == Category.id)
-        .filter(*_mode_acct(mode, account_id), Transaction.is_internal_transfer == False, Transaction.is_investment == False, Transaction.is_card_payment == False, Transaction.transaction_type == "debit")
+        _base_debit_query(db, mode, account_id, start_date, end_date)
+        .join(Category, Transaction.category_id == Category.id)
+        .with_entities(Category.name, func.sum(Transaction.amount).label("total"))
         .group_by(Category.name)
         .order_by(func.sum(Transaction.amount).desc())
         .first()

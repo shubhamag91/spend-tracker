@@ -1,6 +1,7 @@
 import { format, parseISO } from 'date-fns';
 
 export function formatCurrency(amount: number): string {
+  if (!Number.isFinite(amount)) amount = 0;  // guard NaN/undefined → "₹0", never "₹NaN"
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',

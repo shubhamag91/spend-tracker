@@ -89,12 +89,17 @@ if _FRONTEND_DIST.is_dir():
     if _ASSETS.is_dir():
         app.mount("/assets", StaticFiles(directory=_ASSETS), name="assets")
 
+    _DIST_ROOT = _FRONTEND_DIST.resolve()
+
     @app.get("/{full_path:path}")
     def serve_spa(full_path: str):
         # static file if it exists (favicon, etc.), else index.html for SPA routes.
         # API routes are registered above, so they take precedence over this catch-all.
-        candidate = _FRONTEND_DIST / full_path
-        if full_path and candidate.is_file():
+        # Resolve and contain the path inside dist — `full_path` can carry `../` (and
+        # %2f-encoded slashes), so without this guard the catch-all would serve any
+        # file on disk (e.g. the SQLite DB). See path-traversal fix.
+        candidate = (_FRONTEND_DIST / full_path).resolve()
+        if full_path and candidate.is_file() and candidate.is_relative_to(_DIST_ROOT):
             return FileResponse(candidate)
         return FileResponse(_FRONTEND_DIST / "index.html")
 

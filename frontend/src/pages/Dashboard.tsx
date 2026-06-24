@@ -346,7 +346,8 @@ function Empty({ msg = 'No data for this period' }: { msg?: string }) {
   return <div className="h-32 flex items-center justify-center text-slate-300 text-sm">{msg}</div>;
 }
 
-const HEAT = ['#f1f5f9', '#dbe1fb', '#b4befb', '#8b96f5', '#6366f1', '#4f46e5'];
+// dark-theme ramp: low spend starts from the dark card surface (not near-white), up to indigo
+const HEAT = ['#1b2638', '#28335a', '#3a4488', '#5159c5', '#6366f1', '#818cf8'];
 
 function Heatmap({ data }: { data: { day: string; week_num: number; total: number }[] }) {
   // collapse to per-day average across weeks
