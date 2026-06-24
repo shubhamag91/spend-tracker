@@ -109,6 +109,11 @@ export default function Investments() {
         </div>
       </div>
 
+      {/* Monthly invested vs returns — grouped bars per month, scoped by the platform picker */}
+      {monthly && (
+        <InvestmentMonthlyChart monthly={monthly} selected={chartPlatform} onSelect={setChartPlatform} />
+      )}
+
       {/* Invested / Returns toggle — drives the breakdown + transaction list below */}
       <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1">
         {(['invested', 'returns'] as const).map((v) => (
@@ -123,11 +128,6 @@ export default function Investments() {
           </button>
         ))}
       </div>
-
-      {/* Monthly invested vs returns — grouped bars per month, scoped by the platform picker */}
-      {monthly && (
-        <InvestmentMonthlyChart monthly={monthly} selected={chartPlatform} onSelect={setChartPlatform} />
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Left: transactions */}
