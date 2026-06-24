@@ -23,9 +23,13 @@ export default function Investments() {
   const { data: invested, isLoading } = useInvestmentSummary(mode, dateRange, 'debit');
   const { data: returns } = useInvestmentSummary(mode, dateRange, 'credit');
   const summary = isReturns ? returns : invested;  // active view drives the breakdown + list
-  // monthly invested-vs-returns chart has its own platform picker (independent of the toggle below)
-  const [chartPlatform, setChartPlatform] = useState<string | null>(null);
-  const { data: monthly } = useInvestmentMonthly(mode, dateRange, chartPlatform);
+  // ONE platform selection scopes the KPIs, the chart and the transaction list together
+  // (null = all platforms). Set from the chart chips or by clicking a row in the breakdown.
+  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
+  const { data: monthly } = useInvestmentMonthly(mode, dateRange, selectedPlatform);
+  // KPI totals come from the same monthly data the chart draws, so they can never disagree
+  const investedTotal = (monthly?.data ?? []).reduce((s, r) => s + r.invested, 0);
+  const returnsTotal = (monthly?.data ?? []).reduce((s, r) => s + r.returns, 0);
   const { data: rules } = useInvestmentRules();
   const createRule = useCreateInvestmentRule();
   const deleteRule = useDeleteInvestmentRule();
@@ -34,8 +38,6 @@ export default function Investments() {
   const [label, setLabel] = useState('');
   const [rulesOpen, setRulesOpen] = useState(false);  // collapsed by default — guards against accidental edits
   const [page, setPage] = useState(1);
-  // null = all investments; else filter the list to one platform
-  const [platform, setPlatform] = useState<{ name: string; keyword: string } | null>(null);
   const [sortBy, setSortBy] = useState<SortField>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
@@ -48,22 +50,20 @@ export default function Investments() {
   const { data: txns } = useTransactions({
     mode, account_id: accountId, is_investment: true,
     transaction_type: isReturns ? 'credit' : 'debit',
-    investment_platform: platform?.name,
+    investment_platform: selectedPlatform ?? undefined,
     start_date: dateRange?.start, end_date: dateRange?.end,
     sort_by: sortBy, sort_dir: sortDir, page, page_size: 25,
   });
 
   // reset to page 1 when a filter or sort changes
-  useEffect(() => { setPage(1); }, [platform, sortBy, sortDir, range, view]);
-  // platform picks are per-view (invested vs returns have different platforms)
-  useEffect(() => { setPlatform(null); }, [view]);
+  useEffect(() => { setPage(1); }, [selectedPlatform, sortBy, sortDir, range, view]);
 
   function toggleSort(field: SortField) {
     if (field === sortBy) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortBy(field); setSortDir('desc'); }
   }
-  function selectPlatform(name: string, kw: string) {
-    setPlatform((p) => (p?.keyword === kw ? null : { name, keyword: kw }));  // click again to clear
+  function selectPlatform(name: string) {
+    setSelectedPlatform((p) => (p === name ? null : name));  // click again to clear
   }
 
   function addRule(e: React.FormEvent) {
@@ -93,25 +93,26 @@ export default function Investments() {
 
       <DateRangeFilter selected={range} onChange={setRange} dataBounds={dataBounds} />
 
-      {/* KPIs — all respond to the date filter above */}
+      {/* KPIs — respond to the date filter AND the selected platform, so they always
+          match the chart below */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <p className="text-xs text-slate-400 uppercase tracking-wide">Total invested</p>
-          <p className="text-2xl font-bold text-indigo-700 mt-1">{formatCurrency(invested?.total_invested ?? 0)}</p>
+          <p className="text-xs text-slate-400 uppercase tracking-wide">{selectedPlatform ? `Invested · ${selectedPlatform}` : 'Total invested'}</p>
+          <p className="text-2xl font-bold text-indigo-700 mt-1">{formatCurrency(investedTotal)}</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <p className="text-xs text-slate-400 uppercase tracking-wide">Total returns</p>
-          <p className="text-2xl font-bold text-[#5cc99e] mt-1">{formatCurrency(returns?.total_invested ?? 0)}</p>
+          <p className="text-xs text-slate-400 uppercase tracking-wide">{selectedPlatform ? `Returns · ${selectedPlatform}` : 'Total returns'}</p>
+          <p className="text-2xl font-bold text-[#5cc99e] mt-1">{formatCurrency(returnsTotal)}</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <p className="text-xs text-slate-400 uppercase tracking-wide">Platforms</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">{platforms.length}</p>
+          <p className="text-2xl font-bold text-slate-800 mt-1">{monthly?.platforms.length ?? 0}</p>
         </div>
       </div>
 
       {/* Monthly invested vs returns — grouped bars per month, scoped by the platform picker */}
       {monthly && (
-        <InvestmentMonthlyChart monthly={monthly} selected={chartPlatform} onSelect={setChartPlatform} />
+        <InvestmentMonthlyChart monthly={monthly} selected={selectedPlatform} onSelect={setSelectedPlatform} />
       )}
 
       {/* Invested / Returns toggle — drives the breakdown + transaction list below */}
@@ -135,9 +136,9 @@ export default function Investments() {
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
               <h2 className="font-semibold text-slate-800 flex items-center gap-2">
-                {platform ? <>Showing: <span className="text-indigo-700">{platform.name}</span></> : isReturns ? 'Return transactions' : 'Investment transactions'}
-                {platform && (
-                  <button onClick={() => setPlatform(null)} className="text-xs font-normal text-slate-400 hover:text-red-600 border border-slate-200 rounded-full px-2 py-0.5">clear ×</button>
+                {selectedPlatform ? <>Showing: <span className="text-indigo-700">{selectedPlatform}</span></> : isReturns ? 'Return transactions' : 'Investment transactions'}
+                {selectedPlatform && (
+                  <button onClick={() => setSelectedPlatform(null)} className="text-xs font-normal text-slate-400 hover:text-red-600 border border-slate-200 rounded-full px-2 py-0.5">clear ×</button>
                 )}
                 <span className="text-xs font-normal text-slate-400">({txns?.total ?? 0})</span>
               </h2>
@@ -197,11 +198,11 @@ export default function Investments() {
             <h2 className="font-semibold text-slate-800 mb-2">By platform <span className="text-xs font-normal text-slate-400">· click to filter</span></h2>
             <div className="space-y-0.5">
               {platforms.map((p) => {
-                const active = platform?.keyword === p.keyword;
+                const active = selectedPlatform === p.name;
                 return (
                   <button
                     key={p.name}
-                    onClick={() => p.keyword && selectPlatform(p.name, p.keyword)}
+                    onClick={() => selectPlatform(p.name)}
                     className={`w-full flex items-center justify-between gap-3 text-sm rounded-lg px-2 py-1.5 transition-colors ${active ? 'bg-indigo-50 ring-1 ring-indigo-200' : 'hover:bg-slate-50'}`}
                   >
                     <span className="text-slate-700 font-medium truncate">{p.name} <span className="text-slate-400 font-normal">· {p.count}×</span></span>
