@@ -104,6 +104,28 @@ def generate_demo_data(db: Session) -> int:
 
     inserted = 0
 
+    def _add(txn_date, amount, ttype, description, *, is_investment=False):
+        """Insert one demo transaction (deduped by a salted row_hash)."""
+        nonlocal inserted
+        rh = compute_row_hash(str(txn_date), amount, description + "_demo_" + uuid.uuid4().hex[:8])
+        if db.query(Transaction).filter(Transaction.row_hash == rh).first():
+            return
+        db.add(Transaction(
+            date=txn_date, amount=amount, transaction_type=ttype,
+            description=description, raw_description=description,
+            category_id=categorize(description, db), source="demo", data_mode="demo",
+            file_hash=None, row_hash=rh, is_investment=is_investment,
+        ))
+        inserted += 1
+
+    # First-of-month anchors across the whole window — used to space out the
+    # recurring income / investment / return streams below.
+    month_anchors: list[date] = []
+    cur = start_date.replace(day=1)
+    while cur <= today:
+        month_anchors.append(cur)
+        cur = (cur.replace(day=28) + timedelta(days=7)).replace(day=1)
+
     for cat_name, merchants in DEMO_MERCHANTS.items():
         freq_per_4_weeks = CATEGORY_FREQUENCY.get(cat_name, 2)
         total_txns = int(freq_per_4_weeks * total_days / 28)
@@ -139,6 +161,44 @@ def generate_demo_data(db: Session) -> int:
             )
             db.add(txn)
             inserted += 1
+
+    # ── Income (credits) — monthly salary + occasional freelance / interest, so the
+    #    Income page, diversification, savings and the wallet's "Loaded" aren't empty.
+    for i, m in enumerate(month_anchors):
+        _add(m + timedelta(days=random.randint(0, 2)),
+             round(random.uniform(118000, 132000), 2), "credit", "ACME CORP SALARY CREDIT")
+        if i % 2 == 0:
+            _add(m + timedelta(days=random.randint(8, 18)),
+                 round(random.uniform(15000, 40000), 2), "credit", "Upwork Freelance Payment")
+        if i % 3 == 0:
+            _add(m + timedelta(days=random.randint(20, 27)),
+                 round(random.uniform(800, 2200), 2), "credit", "HDFC Savings Account Interest")
+
+    # ── Investments (debits, is_investment) — recurring SIPs across platforms + the
+    #    odd lump sum. Descriptions carry built-in platform keywords so they group by
+    #    platform (Zerodha / Groww / Smallcase / Grip).
+    sips = [("Zerodha Coin SIP", 10000), ("Groww Mutual Fund SIP", 8000),
+            ("Smallcase Investment", 5000), ("Grip Invest SIP", 12000)]
+    for m in month_anchors:
+        for name, base in sips:
+            _add(m + timedelta(days=random.randint(3, 8)),
+                 round(base * random.uniform(0.95, 1.05), 2), "debit", name, is_investment=True)
+    for m in month_anchors[::3]:
+        _add(m + timedelta(days=random.randint(10, 20)),
+             round(random.uniform(40000, 90000), 2), "debit", "Grip Invest Lumpsum", is_investment=True)
+
+    # ── Returns (credits, is_investment) — periodic payouts, so the Investments →
+    #    Returns view and the monthly invested-vs-returns chart have data.
+    for m in month_anchors:
+        if random.random() < 0.85:
+            _add(m + timedelta(days=random.randint(12, 25)),
+                 round(random.uniform(2000, 5000), 2), "credit", "Grip Invest Return", is_investment=True)
+        if random.random() < 0.45:
+            _add(m + timedelta(days=random.randint(15, 27)),
+                 round(random.uniform(3000, 8000), 2), "credit", "Zerodha Coin Redemption", is_investment=True)
+        if random.random() < 0.30:
+            _add(m + timedelta(days=random.randint(5, 15)),
+                 round(random.uniform(500, 1500), 2), "credit", "Smallcase Dividend Payout", is_investment=True)
 
     db.commit()
     return inserted
