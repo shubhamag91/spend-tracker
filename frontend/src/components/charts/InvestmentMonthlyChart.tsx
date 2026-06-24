@@ -72,14 +72,14 @@ export default function InvestmentMonthlyChart({ monthly, selected, onSelect }: 
         <div className="h-48 flex items-center justify-center text-slate-400 text-sm">No data for this selection</div>
       ) : (
         <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }} barGap={4}>
+          <BarChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }} barGap={2} barCategoryGap="34%">
             <CartesianGrid strokeDasharray="3 3" stroke="#1e2940" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={compactInr} width={52} />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: '#1e2940' }} />
             <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={9} />
-            <Bar dataKey="invested" name="Invested" fill={INVESTED} radius={[3, 3, 0, 0]} maxBarSize={46} />
-            <Bar dataKey="returns" name="Returns" fill={RETURNS} radius={[3, 3, 0, 0]} maxBarSize={46} />
+            <Bar dataKey="invested" name="Invested" fill={INVESTED} radius={[3, 3, 0, 0]} />
+            <Bar dataKey="returns" name="Returns" fill={RETURNS} radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       )}
