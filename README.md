@@ -44,7 +44,7 @@ toggle for sharing without exposing real finances.
 - **Cross-account transfer detection**: Moves between two of your own accounts are matched (debit↔credit) and excluded from spend & income
 - **Per-account view**: Tag each statement to its account on upload; an account selector scopes the whole dashboard to one bank/card or shows them combined
 - **Account freshness**: A dashboard card shows each account's *data-through* date with a colour-coded staleness dot, so you know which statement to import next
-- **Investment management**: A dedicated Investments page with payee rules (e.g. Lendbox, Indian Clearing) + one-click manual tagging keeps investments out of "spend" — for existing and future imports (bank accounts only); a rule can carry a display label so the breakdown shows the real platform (e.g. keyword `INGENICO` → `Grip`)
+- **Investment management**: A dedicated Investments page with payee rules (e.g. Lendbox, Indian Clearing) + one-click manual tagging keeps investments out of "spend" — for existing and future imports (bank accounts only); a rule can carry a display label so the breakdown shows the real platform (e.g. keyword `INGENICO` → `Grip`). An **Invested / Returns toggle** views outflows (money invested) vs inflows (redemptions/payouts) separately, with KPIs for total invested, total returns, and platform count
 - **Fixed-spends tracker**: A dedicated page for recurring monthly commitments — rent, bills (electricity/internet/phone), EMIs, and subscriptions (Netflix, Spotify, Claude…) — detected by name and **normalised to a monthly cost** by each item's billing frequency (quarterly ÷3, variable lump-sums averaged); rules can carry a min-amount floor so one merchant string can be split into multiple bills (e.g. parents' electricity vs phone, both via Airtel Payments Bank), or a fixed monthly-amount override for lump-sum prepaids (e.g. a ₹20,007 maintenance recharge that's really ₹5,200/month)
 - **Auto-categorization**: Editable keyword rules assign categories (Food, Transport, Groceries…)
 - **Analytics**: Wallet breakdown, category spend, weekly velocity, day-of-week heatmap, top merchants, merchant-normalized recurring detection, and plain-English insights
@@ -186,7 +186,7 @@ endpoints accept `mode=real|demo` and optional `start_date` / `end_date`.
 | Transactions | `GET /transactions` (filters + `sort_by`/`sort_dir`), `POST /transactions/reconcile-transfers`, `PATCH /transactions/{id}/category`, `DELETE /transactions/{id}` |
 | Categories | `GET·POST /categories`, `PATCH·DELETE /categories/{id}` |
 | Accounts | `GET·POST /accounts`, `PATCH·DELETE /accounts/{id}`, `GET /accounts/status` (per-account freshness) — bank / card sources, see note below |
-| Investments | `GET·POST /investment-rules`, `DELETE /investment-rules/{id}`, `POST /investment-rules/apply`, `GET /investments/summary` |
+| Investments | `GET·POST /investment-rules`, `DELETE /investment-rules/{id}`, `POST /investment-rules/apply`, `GET /investments/summary` (`direction=debit\|credit` for invested vs returns) |
 | Subscriptions | `GET·POST /subscription-rules`, `PATCH·DELETE /subscription-rules/{id}`, `GET /subscriptions/summary` |
 | Upload / Demo | `POST /upload`, `POST /demo/generate`, `DELETE /demo/clear` |
 | Health | `GET /health` |

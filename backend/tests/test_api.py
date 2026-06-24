@@ -348,6 +348,42 @@ def test_investment_rules_and_manual_toggle(client):
     assert only_inv["total"] == 1 and only_inv["items"][0]["description"].endswith("LENDBOX")
 
 
+def test_investment_summary_direction_splits_invested_and_returns(client):
+    """direction=debit totals money invested (outflows); direction=credit totals
+    returns/redemptions (inflows). Both sides are is_investment-flagged."""
+    from datetime import date
+    from app.models.account import Account
+    db = TestingSession()
+    bank = Account(name="Bank", type="bank")
+    db.add(bank); db.commit(); db.refresh(bank)
+    db.add_all([
+        # money invested (debits)
+        Transaction(date=date(2025, 5, 1), amount=50000.0, transaction_type="debit",
+                    description="LENDBOX SIP", source="t", data_mode="real", row_hash="d1",
+                    account_id=bank.id, is_investment=True),
+        Transaction(date=date(2025, 5, 2), amount=30000.0, transaction_type="debit",
+                    description="LENDBOX SIP", source="t", data_mode="real", row_hash="d2",
+                    account_id=bank.id, is_investment=True),
+        # a return coming back (credit)
+        Transaction(date=date(2025, 6, 1), amount=12000.0, transaction_type="credit",
+                    description="LENDBOX REDEMPTION", source="t", data_mode="real", row_hash="c1",
+                    account_id=bank.id, is_investment=True),
+    ])
+    db.commit(); db.close()
+
+    invested = client.get("/api/investments/summary?mode=real&direction=debit").json()
+    assert invested["total_invested"] == 80000.0 and invested["count"] == 2
+
+    returns = client.get("/api/investments/summary?mode=real&direction=credit").json()
+    assert returns["total_invested"] == 12000.0 and returns["count"] == 1
+
+    # default direction is debit (invested), unchanged from before
+    assert client.get("/api/investments/summary?mode=real").json()["count"] == 2
+
+    # bad direction rejected by the pattern validator
+    assert client.get("/api/investments/summary?mode=real&direction=sideways").status_code == 422
+
+
 def test_recurring_requires_consistent_amount_and_cadence(client):
     from datetime import date
     db = TestingSession()

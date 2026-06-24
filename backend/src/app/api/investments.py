@@ -90,16 +90,18 @@ def apply_rules(mode: str = Query("real", pattern="^(real|demo)$"), db: Session 
 @router.get("/investments/summary", response_model=InvestmentSummary)
 def investments_summary(
     mode: str = Query("real", pattern="^(real|demo)$"),
+    direction: str = Query("debit", pattern="^(debit|credit)$"),
     account_id: int | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
     db: Session = Depends(get_db),
 ):
-    """Total invested (debits flagged is_investment) + breakdown by platform."""
+    """Total + per-platform breakdown of is_investment transactions for one direction:
+    debit = money invested (outflows), credit = returns/redemptions (inflows)."""
     q = db.query(Transaction).filter(
         Transaction.data_mode == mode,
         Transaction.is_investment == True,
-        Transaction.transaction_type == "debit",
+        Transaction.transaction_type == direction,
     )
     if account_id is not None:
         q = q.filter(Transaction.account_id == account_id)

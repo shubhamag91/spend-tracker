@@ -17,7 +17,11 @@ export default function Investments() {
   const [range, setRange] = useState<DateRange>(PRESETS[0]);
   const dateRange = range.start ? { start: range.start, end: range.end } : undefined;
 
-  const { data: summary, isLoading } = useInvestmentSummary(mode, dateRange);
+  const [view, setView] = useState<'invested' | 'returns'>('invested');
+  const isReturns = view === 'returns';
+  const { data: invested, isLoading } = useInvestmentSummary(mode, dateRange, 'debit');
+  const { data: returns } = useInvestmentSummary(mode, dateRange, 'credit');
+  const summary = isReturns ? returns : invested;  // active view drives the breakdown + list
   const { data: rules } = useInvestmentRules();
   const createRule = useCreateInvestmentRule();
   const deleteRule = useDeleteInvestmentRule();
@@ -38,14 +42,17 @@ export default function Investments() {
     : undefined;
 
   const { data: txns } = useTransactions({
-    mode, account_id: accountId, is_investment: true, transaction_type: 'debit',
+    mode, account_id: accountId, is_investment: true,
+    transaction_type: isReturns ? 'credit' : 'debit',
     search: platform?.keyword,
     start_date: dateRange?.start, end_date: dateRange?.end,
     sort_by: sortBy, sort_dir: sortDir, page, page_size: 25,
   });
 
   // reset to page 1 when a filter or sort changes
-  useEffect(() => { setPage(1); }, [platform, sortBy, sortDir, range]);
+  useEffect(() => { setPage(1); }, [platform, sortBy, sortDir, range, view]);
+  // platform picks are per-view (invested vs returns have different platforms)
+  useEffect(() => { setPlatform(null); }, [view]);
 
   function toggleSort(field: SortField) {
     if (field === sortBy) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -82,20 +89,35 @@ export default function Investments() {
 
       <DateRangeFilter selected={range} onChange={setRange} dataBounds={dataBounds} />
 
-      {/* KPIs */}
+      {/* KPIs — all respond to the date filter above */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <p className="text-xs text-slate-400 uppercase tracking-wide">Total invested</p>
-          <p className="text-2xl font-bold text-indigo-700 mt-1">{formatCurrency(summary?.total_invested ?? 0)}</p>
+          <p className="text-2xl font-bold text-indigo-700 mt-1">{formatCurrency(invested?.total_invested ?? 0)}</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <p className="text-xs text-slate-400 uppercase tracking-wide">Transactions</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">{summary?.count ?? 0}</p>
+          <p className="text-xs text-slate-400 uppercase tracking-wide">Total returns</p>
+          <p className="text-2xl font-bold text-[#5cc99e] mt-1">{formatCurrency(returns?.total_invested ?? 0)}</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <p className="text-xs text-slate-400 uppercase tracking-wide">Platforms</p>
           <p className="text-2xl font-bold text-slate-800 mt-1">{platforms.length}</p>
         </div>
+      </div>
+
+      {/* Invested / Returns toggle — drives the breakdown + transaction list below */}
+      <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1">
+        {(['invested', 'returns'] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={`px-4 py-1.5 text-sm font-medium rounded-lg capitalize transition-colors ${
+              view === v ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {v}
+          </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -104,7 +126,7 @@ export default function Investments() {
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
               <h2 className="font-semibold text-slate-800 flex items-center gap-2">
-                {platform ? <>Showing: <span className="text-indigo-700">{platform.name}</span></> : 'Investment transactions'}
+                {platform ? <>Showing: <span className="text-indigo-700">{platform.name}</span></> : isReturns ? 'Return transactions' : 'Investment transactions'}
                 {platform && (
                   <button onClick={() => setPlatform(null)} className="text-xs font-normal text-slate-400 hover:text-red-600 border border-slate-200 rounded-full px-2 py-0.5">clear ×</button>
                 )}
@@ -117,7 +139,7 @@ export default function Investments() {
               </div>
             </div>
             {(txns?.items.length ?? 0) === 0 ? (
-              <div className="h-32 flex items-center justify-center text-slate-400 text-sm">No investment transactions</div>
+              <div className="h-32 flex items-center justify-center text-slate-400 text-sm">No {isReturns ? 'return' : 'investment'} transactions</div>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-xs text-slate-500 uppercase tracking-wide">
@@ -141,12 +163,12 @@ export default function Investments() {
                     <tr key={t.id} className="hover:bg-slate-50">
                       <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">{formatDate(t.date)}</td>
                       <td className="px-4 py-2.5 text-slate-700 max-w-xs truncate">{t.description}</td>
-                      <td className="px-4 py-2.5 text-right font-medium text-indigo-700 whitespace-nowrap">{formatCurrency(t.amount)}</td>
+                      <td className={`px-4 py-2.5 text-right font-medium whitespace-nowrap ${isReturns ? 'text-[#5cc99e]' : 'text-indigo-700'}`}>{formatCurrency(t.amount)}</td>
                       <td className="px-4 py-2.5 text-right">
                         <button
                           onClick={() => setInvestment.mutate({ txnId: t.id, value: false })}
                           className="text-xs text-slate-400 hover:text-red-600"
-                          title="Move back to spend"
+                          title={isReturns ? 'Remove from returns (counts as income)' : 'Move back to spend'}
                         >
                           Unmark
                         </button>

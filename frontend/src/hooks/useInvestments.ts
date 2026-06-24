@@ -3,13 +3,17 @@ import client from '../api/client';
 import { useSelectedAccountId } from '../store/selectedAccount';
 import type { InvestmentSummary, InvestmentRule } from '../types';
 
-export function useInvestmentSummary(mode: string, range?: { start?: string; end?: string }) {
+export function useInvestmentSummary(
+  mode: string,
+  range?: { start?: string; end?: string },
+  direction: 'debit' | 'credit' = 'debit',  // debit = invested, credit = returns
+) {
   const accountId = useSelectedAccountId();
   return useQuery<InvestmentSummary>({
     placeholderData: keepPreviousData,  // keep showing prior data while a new range loads
-    queryKey: ['investments', 'summary', mode, accountId, range],
+    queryKey: ['investments', 'summary', mode, accountId, range, direction],
     queryFn: () => {
-      const params: Record<string, string | number> = { mode };
+      const params: Record<string, string | number> = { mode, direction };
       if (accountId != null) params.account_id = accountId;
       if (range?.start) params.start_date = range.start;
       if (range?.end) params.end_date = range.end;
