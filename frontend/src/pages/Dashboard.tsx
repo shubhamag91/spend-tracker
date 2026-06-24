@@ -117,32 +117,32 @@ export default function Dashboard() {
       ) : (
       <>
       {/* Hero — the wallet story: loaded → invested + spent + unspent */}
-      <div className="bg-gradient-to-br from-[#3b3f63] to-[#262a40] rounded-3xl p-7 text-white shadow-lg shadow-black/20 ring-1 ring-white/5">
+      <div className="bg-white rounded-3xl border border-slate-100 p-7 shadow-sm">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
-            <p className="text-indigo-200 text-sm font-medium">You spent</p>
-            <p className="text-4xl font-bold tracking-tight mt-1">{formatCurrency(spent)}</p>
-            <p className="text-indigo-200 text-sm mt-2">
+            <p className="text-slate-400 text-sm font-medium">You spent</p>
+            <p className="text-4xl font-bold tracking-tight mt-1 text-slate-900">{formatCurrency(spent)}</p>
+            <p className="text-slate-400 text-sm mt-2">
               of {formatCurrency(loaded)} loaded
-              {invested > 0 && <span className="text-white font-medium"> · {formatCurrency(invested)} invested</span>}
+              {invested > 0 && <span className="text-slate-600 font-medium"> · {formatCurrency(invested)} invested</span>}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-indigo-200 text-sm font-medium">Unspent in wallet</p>
-            <p className="text-3xl font-bold tracking-tight mt-1">{formatCurrency(unspent)}</p>
+            <p className="text-slate-400 text-sm font-medium">Unspent in wallet</p>
+            <p className="text-3xl font-bold tracking-tight mt-1 text-slate-900">{formatCurrency(unspent)}</p>
           </div>
         </div>
         {/* where the loaded money went: invested / spent / unspent */}
         <div className="mt-6">
-          <div className="h-2.5 bg-white/20 rounded-full overflow-hidden flex">
-            <div className="h-full bg-violet-300 transition-all" style={{ width: `${invPct}%` }} title="Invested" />
-            <div className="h-full bg-white transition-all" style={{ width: `${spentPct}%` }} title="Spent" />
-            <div className="h-full bg-white/25 transition-all" style={{ width: `${unspentPct}%` }} title="Unspent" />
+          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden flex">
+            <div className="h-full bg-indigo-400/80 transition-all" style={{ width: `${invPct}%` }} title="Invested" />
+            <div className="h-full bg-slate-400 transition-all" style={{ width: `${spentPct}%` }} title="Spent" />
+            <div className="h-full bg-slate-600 transition-all" style={{ width: `${unspentPct}%` }} title="Unspent" />
           </div>
-          <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2.5 text-xs text-indigo-200">
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-violet-300 inline-block" />Invested {invPct}%</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-white inline-block" />Spent {spentPct}%</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-white/30 inline-block" />Unspent {unspentPct}%</span>
+          <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2.5 text-xs text-slate-400">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-400/80 inline-block" />Invested {invPct}%</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />Spent {spentPct}%</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-600 inline-block" />Unspent {unspentPct}%</span>
           </div>
         </div>
       </div>
