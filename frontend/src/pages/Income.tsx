@@ -46,8 +46,8 @@ export default function Income() {
     salary: 'Stable', freelance: 'Variable', interest: 'Passive', other: 'Other',
   };
   const sourceTypeBadge: Record<string, string> = {
-    salary: 'bg-emerald-50 text-emerald-700',
-    freelance: 'bg-amber-50 text-amber-700',
+    salary: 'bg-[#15241d] text-[#6ee7b7]',
+    freelance: 'bg-[#241c10] text-[#d9b066]',
     interest: 'bg-indigo-50 text-indigo-700',
     other: 'bg-slate-100 text-slate-600',
   };
@@ -57,7 +57,7 @@ export default function Income() {
   const expected = months[0]?.expected ?? 0;
   const onTarget = months.filter(m => m.actual >= expected * 0.95).length;
   const stability = months.length > 0 ? Math.round((onTarget / months.length) * 80 + 20) : 0;
-  const stabilityColor = stability >= 75 ? 'text-emerald-600' : stability >= 50 ? 'text-amber-500' : 'text-rose-500';
+  const stabilityColor = stability >= 75 ? 'text-[#5cc99e]' : stability >= 50 ? 'text-[#d9b066]' : 'text-[#e88e9b]';
 
   // avg / best / worst savings
   const savingsList = savings.data ?? [];
@@ -80,19 +80,19 @@ export default function Income() {
           label="Total Income"
           value={formatCurrency(totalIncome)}
           sub={savingsRate > 0 ? `↑ saving ${savingsRate}% of income` : undefined}
-          subColor="text-emerald-500"
+          subColor="text-[#5cc99e]"
         />
         <StatCard
           label="Total Spend"
           value={formatCurrency(totalSpend)}
           sub={totalIncome > 0 ? `${Math.round(totalSpend / totalIncome * 100)}% of income` : undefined}
-          subColor="text-rose-400"
+          subColor="text-[#e88e9b]"
         />
         <StatCard
           label="Savings Rate"
           value={`${savingsRate}%`}
           sub={savingsRate >= 30 ? 'Great discipline!' : 'Room to improve'}
-          subColor={savingsRate >= 30 ? 'text-emerald-500' : 'text-amber-500'}
+          subColor={savingsRate >= 30 ? 'text-[#5cc99e]' : 'text-[#d9b066]'}
         />
         <StatCard
           label="Income Stability"
@@ -128,10 +128,10 @@ export default function Income() {
                         className="w-full rounded-t-md"
                         style={{
                           height: h,
-                          background: belowExpected ? '#fcd34d' : isLast ? 'linear-gradient(180deg,#34d399,#059669)' : '#a7f3d0',
+                          background: belowExpected ? '#b3924a' : isLast ? 'linear-gradient(180deg,#4f9e7e,#2f6b54)' : '#4d8f73',
                         }}
                       />
-                      <span className={`text-xs ${isLast ? 'text-emerald-600 font-bold' : 'text-slate-400'}`}>
+                      <span className={`text-xs ${isLast ? 'text-[#5cc99e] font-bold' : 'text-slate-400'}`}>
                         {formatMonthLabel(m.month)}
                       </span>
                     </div>
@@ -139,9 +139,9 @@ export default function Income() {
                 })}
               </div>
               <div className="flex gap-4 mt-3 text-xs text-slate-400">
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-200 inline-block" />Normal</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-yellow-300 inline-block" />Below expected</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500 inline-block" />Latest</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#4d8f73] inline-block" />Normal</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#b3924a] inline-block" />Below expected</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-[#4f9e7e] inline-block" />Latest</span>
               </div>
             </>
           )}
@@ -154,10 +154,10 @@ export default function Income() {
           <div className="flex flex-col items-center mb-6">
             <div className="relative w-32 h-32">
               <svg viewBox="0 0 130 130" width="130" height="130">
-                <circle cx="65" cy="65" r="52" fill="none" stroke="#f1f5f9" strokeWidth="14" />
+                <circle cx="65" cy="65" r="52" fill="none" stroke="#2a3650" strokeWidth="14" />
                 <circle
                   cx="65" cy="65" r="52" fill="none"
-                  stroke={stability >= 75 ? '#10b981' : stability >= 50 ? '#f59e0b' : '#fb7185'}
+                  stroke={stability >= 75 ? '#4f9e7e' : stability >= 50 ? '#c69a52' : '#cf7d8a'}
                   strokeWidth="14"
                   strokeDasharray={`${(stability / 100) * 326} 326`}
                   strokeDashoffset="81.5"
@@ -172,20 +172,20 @@ export default function Income() {
             </div>
           </div>
           <div className="space-y-2">
-            <div className="flex justify-between items-center px-3 py-2.5 bg-emerald-50 rounded-xl">
-              <span className="text-xs font-medium text-emerald-700">✅ {onTarget} of {months.length} months on target</span>
-              <span className="text-xs font-bold text-emerald-600">+{Math.round(onTarget / Math.max(months.length, 1) * 40)} pts</span>
+            <div className="flex justify-between items-center px-3 py-2.5 bg-[#15241d] rounded-xl">
+              <span className="text-xs font-medium text-[#6ee7b7]">✅ {onTarget} of {months.length} months on target</span>
+              <span className="text-xs font-bold text-[#5cc99e]">+{Math.round(onTarget / Math.max(months.length, 1) * 40)} pts</span>
             </div>
             {sources.data?.some(s => s.source_type === 'salary') && (
-              <div className="flex justify-between items-center px-3 py-2.5 bg-emerald-50 rounded-xl">
-                <span className="text-xs font-medium text-emerald-700">✅ Salary income detected</span>
-                <span className="text-xs font-bold text-emerald-600">+40 pts</span>
+              <div className="flex justify-between items-center px-3 py-2.5 bg-[#15241d] rounded-xl">
+                <span className="text-xs font-medium text-[#6ee7b7]">✅ Salary income detected</span>
+                <span className="text-xs font-bold text-[#5cc99e]">+40 pts</span>
               </div>
             )}
             {sources.data?.some(s => s.source_type === 'freelance') && (
-              <div className="flex justify-between items-center px-3 py-2.5 bg-amber-50 rounded-xl">
-                <span className="text-xs font-medium text-amber-700">⚠ Variable income (freelance)</span>
-                <span className="text-xs font-bold text-amber-600">varies</span>
+              <div className="flex justify-between items-center px-3 py-2.5 bg-[#241c10] rounded-xl">
+                <span className="text-xs font-medium text-[#d9b066]">⚠ Variable income (freelance)</span>
+                <span className="text-xs font-bold text-[#d9b066]">varies</span>
               </div>
             )}
           </div>
@@ -210,7 +210,7 @@ export default function Income() {
                   key={s.name}
                   style={{
                     width: `${s.percentage}%`,
-                    background: s.source_type === 'salary' ? '#10b981' : s.source_type === 'freelance' ? '#6366f1' : s.source_type === 'interest' ? '#f59e0b' : '#94a3b8',
+                    background: s.source_type === 'salary' ? '#4f9e7e' : s.source_type === 'freelance' ? '#6366f1' : s.source_type === 'interest' ? '#c69a52' : '#94a3b8',
                   }}
                   title={`${s.name}: ${s.percentage}%`}
                 />
@@ -229,7 +229,7 @@ export default function Income() {
                         className="h-full rounded-full"
                         style={{
                           width: `${s.percentage}%`,
-                          background: s.source_type === 'salary' ? '#10b981' : s.source_type === 'freelance' ? '#6366f1' : '#f59e0b',
+                          background: s.source_type === 'salary' ? '#4f9e7e' : s.source_type === 'freelance' ? '#6366f1' : '#c69a52',
                         }}
                       />
                     </div>
@@ -245,7 +245,7 @@ export default function Income() {
               ))}
             </div>
             {sources.data.some(s => s.source_type === 'salary' && s.percentage > 70) && (
-              <div className="mt-4 p-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-700">
+              <div className="mt-4 p-3 bg-[#241c10] border border-[#3b2d14] rounded-xl text-xs text-[#d9b066]">
                 💡 <strong>High salary dependency.</strong> Consider building freelance income or passive income streams to reduce single-source risk.
               </div>
             )}
@@ -276,21 +276,21 @@ export default function Income() {
                   </span>
                   <div className="flex-1 space-y-1.5">
                     <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${actualPct}%`, background: diff >= 0 ? '#10b981' : '#fcd34d' }} />
+                      <div className="h-full rounded-full" style={{ width: `${actualPct}%`, background: diff >= 0 ? '#4f9e7e' : '#b3924a' }} />
                     </div>
                     <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                       <div className="h-full rounded-full bg-slate-200" style={{ width: `${expectedPct}%` }} />
                     </div>
                   </div>
                   <span className="text-xs font-bold text-slate-800 w-20 text-right">{formatCurrency(m.actual)}</span>
-                  <span className={`text-xs font-semibold w-16 text-right ${diff >= 0 ? 'text-emerald-500' : 'text-rose-400'}`}>
+                  <span className={`text-xs font-semibold w-16 text-right ${diff >= 0 ? 'text-[#5cc99e]' : 'text-[#e88e9b]'}`}>
                     {diff >= 0 ? '+' : ''}{formatCurrency(diff)}
                   </span>
                 </div>
               );
             })}
             <div className="flex gap-4 pt-1 text-xs text-slate-400">
-              <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded bg-emerald-400 inline-block" />Actual</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded bg-[#4f9e7e] inline-block" />Actual</span>
               <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded bg-slate-200 inline-block" />Expected</span>
             </div>
           </div>
@@ -319,10 +319,10 @@ export default function Income() {
                       className="w-full rounded-t-md"
                       style={{
                         height: h,
-                        background: isLast ? 'linear-gradient(180deg,#34d399,#059669)' : s.rate < 30 ? '#fcd34d' : '#a7f3d0',
+                        background: isLast ? 'linear-gradient(180deg,#4f9e7e,#2f6b54)' : s.rate < 30 ? '#b3924a' : '#4d8f73',
                       }}
                     />
-                    <span className={`text-xs ${isLast ? 'text-emerald-600 font-bold' : 'text-slate-400'}`}>
+                    <span className={`text-xs ${isLast ? 'text-[#5cc99e] font-bold' : 'text-slate-400'}`}>
                       {formatMonthLabel(s.month)}
                     </span>
                   </div>
@@ -334,13 +334,13 @@ export default function Income() {
                 <p className="text-xs text-slate-400 mb-1">Avg rate</p>
                 <p className="text-xl font-extrabold text-slate-800">{avgRate}%</p>
               </div>
-              <div className="text-center p-3 bg-emerald-50 rounded-xl">
+              <div className="text-center p-3 bg-[#15241d] rounded-xl">
                 <p className="text-xs text-slate-400 mb-1">Best month</p>
-                <p className="text-xl font-extrabold text-emerald-600">{Math.round(bestRate)}%</p>
+                <p className="text-xl font-extrabold text-[#5cc99e]">{Math.round(bestRate)}%</p>
               </div>
-              <div className="text-center p-3 bg-rose-50 rounded-xl">
+              <div className="text-center p-3 bg-[#251720] rounded-xl">
                 <p className="text-xs text-slate-400 mb-1">Worst month</p>
-                <p className="text-xl font-extrabold text-rose-400">{Math.round(worstRate)}%</p>
+                <p className="text-xl font-extrabold text-[#e88e9b]">{Math.round(worstRate)}%</p>
               </div>
             </div>
           </>
