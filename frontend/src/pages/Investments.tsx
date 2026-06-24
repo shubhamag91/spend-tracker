@@ -23,7 +23,9 @@ export default function Investments() {
   const { data: invested, isLoading } = useInvestmentSummary(mode, dateRange, 'debit');
   const { data: returns } = useInvestmentSummary(mode, dateRange, 'credit');
   const summary = isReturns ? returns : invested;  // active view drives the breakdown + list
-  const { data: monthly } = useInvestmentMonthly(mode, dateRange, isReturns ? 'credit' : 'debit');
+  // monthly invested-vs-returns chart has its own platform picker (independent of the toggle below)
+  const [chartPlatform, setChartPlatform] = useState<string | null>(null);
+  const { data: monthly } = useInvestmentMonthly(mode, dateRange, chartPlatform);
   const { data: rules } = useInvestmentRules();
   const createRule = useCreateInvestmentRule();
   const deleteRule = useDeleteInvestmentRule();
@@ -122,9 +124,9 @@ export default function Investments() {
         ))}
       </div>
 
-      {/* Monthly stacked bars — follows the toggle (invested vs returns), by platform */}
-      {monthly && monthly.data.length > 0 && (
-        <InvestmentMonthlyChart monthly={monthly} isReturns={isReturns} />
+      {/* Monthly invested vs returns — grouped bars per month, scoped by the platform picker */}
+      {monthly && (
+        <InvestmentMonthlyChart monthly={monthly} selected={chartPlatform} onSelect={setChartPlatform} />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

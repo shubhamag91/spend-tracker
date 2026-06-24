@@ -22,22 +22,24 @@ export function useInvestmentSummary(
   });
 }
 
+export interface MonthlyPoint { month: string; label: string; invested: number; returns: number; }
 export interface InvestmentMonthly {
-  platforms: string[];
-  data: Array<Record<string, string | number>>;  // each row: { month, label, [platform]: amount }
+  platforms: string[];        // all platform labels, for the picker chips
+  data: MonthlyPoint[];       // invested vs returns per month (scoped to `platform` if given)
 }
 
 export function useInvestmentMonthly(
   mode: string,
   range?: { start?: string; end?: string },
-  direction: 'debit' | 'credit' = 'debit',
+  platform?: string | null,   // null/undefined = all platforms
 ) {
   const accountId = useSelectedAccountId();
   return useQuery<InvestmentMonthly>({
     placeholderData: keepPreviousData,
-    queryKey: ['investments', 'monthly', mode, accountId, range, direction],
+    queryKey: ['investments', 'monthly', mode, accountId, range, platform],
     queryFn: () => {
-      const params: Record<string, string | number> = { mode, direction };
+      const params: Record<string, string | number> = { mode };
+      if (platform) params.platform = platform;
       if (accountId != null) params.account_id = accountId;
       if (range?.start) params.start_date = range.start;
       if (range?.end) params.end_date = range.end;

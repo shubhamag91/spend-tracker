@@ -162,19 +162,19 @@ def investments_summary(
 @router.get("/investments/monthly")
 def investments_monthly(
     mode: str = Query("real", pattern="^(real|demo)$"),
-    direction: str = Query("debit", pattern="^(debit|credit)$"),
+    platform: str | None = None,   # optional: scope to one platform label (else all)
     account_id: int | None = None,
     start_date: date | None = None,
     end_date: date | None = None,
     db: Session = Depends(get_db),
 ):
-    """Per-month, per-platform totals for one direction (debit = invested, credit =
-    returns). Shaped for a stacked bar chart: each row is a month with one key per
-    platform, plus `platforms` ordered by overall total (largest first)."""
+    """Per-month invested (debits) vs returns (credits), optionally scoped to one
+    platform. Returns `platforms` (the full label list for the chart's picker chips,
+    ordered by total activity) and `data` (one row per month: {month, label, invested,
+    returns}) for the selected platform, or all platforms when none is given."""
     q = db.query(Transaction).filter(
         Transaction.data_mode == mode,
         Transaction.is_investment == True,
-        Transaction.transaction_type == direction,
     )
     if account_id is not None:
         q = q.filter(Transaction.account_id == account_id)
@@ -182,22 +182,32 @@ def investments_monthly(
         q = q.filter(Transaction.date >= start_date)
     if end_date:
         q = q.filter(Transaction.date <= end_date)
-    txns = q.all()
-
     platform_for = _platform_labeler(db)
-    monthly: dict[str, dict[str, float]] = collections.defaultdict(lambda: collections.defaultdict(float))
-    totals: collections.Counter = collections.Counter()
-    for t in txns:
-        label, _ = platform_for(t.description)
-        monthly[t.date.strftime("%Y-%m")][label] += t.amount
-        totals[label] += t.amount
+    labeled = [(platform_for(t.description)[0], t) for t in q.all()]
 
-    platforms = [p for p, _ in totals.most_common()]   # biggest platform first
+    # full platform list for the picker chips — independent of the current selection
+    totals: collections.Counter = collections.Counter()
+    for label, t in labeled:
+        totals[label] += t.amount
+    platforms = [p for p, _ in totals.most_common()]
+
+    monthly: dict[str, dict[str, float]] = collections.defaultdict(lambda: {"invested": 0.0, "returns": 0.0})
+    for label, t in labeled:
+        if platform and label != platform:
+            continue
+        bucket = monthly[t.date.strftime("%Y-%m")]
+        if t.transaction_type == "debit":
+            bucket["invested"] += t.amount
+        elif t.transaction_type == "credit":
+            bucket["returns"] += t.amount
+
     data = []
     for ym in sorted(monthly):
         y, m = ym.split("-")
-        row: dict = {"month": ym, "label": date(int(y), int(m), 1).strftime("%b %y")}
-        for p in platforms:
-            row[p] = round(monthly[ym].get(p, 0.0), 2)
-        data.append(row)
+        data.append({
+            "month": ym,
+            "label": date(int(y), int(m), 1).strftime("%b %y"),
+            "invested": round(monthly[ym]["invested"], 2),
+            "returns": round(monthly[ym]["returns"], 2),
+        })
     return {"platforms": platforms, "data": data}

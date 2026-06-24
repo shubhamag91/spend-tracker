@@ -186,7 +186,7 @@ endpoints accept `mode=real|demo` and optional `start_date` / `end_date`.
 | Transactions | `GET /transactions` (filters + `sort_by`/`sort_dir`), `POST /transactions/reconcile-transfers`, `PATCH /transactions/{id}/category`, `DELETE /transactions/{id}` |
 | Categories | `GET·POST /categories`, `PATCH·DELETE /categories/{id}` |
 | Accounts | `GET·POST /accounts`, `PATCH·DELETE /accounts/{id}`, `GET /accounts/status` (per-account freshness) — bank / card sources, see note below |
-| Investments | `GET·POST /investment-rules`, `DELETE /investment-rules/{id}`, `POST /investment-rules/apply`, `GET /investments/summary` & `GET /investments/monthly` (both take `direction=debit\|credit` for invested vs returns; `monthly` returns per-month, per-platform totals for the stacked chart) |
+| Investments | `GET·POST /investment-rules`, `DELETE /investment-rules/{id}`, `POST /investment-rules/apply`, `GET /investments/summary` & `GET /investments/monthly` (`summary` takes `direction=debit\|credit` for invested vs returns; `monthly` returns invested-vs-returns per month, optionally scoped to one `platform`, for the comparison chart) |
 | Subscriptions | `GET·POST /subscription-rules`, `PATCH·DELETE /subscription-rules/{id}`, `GET /subscriptions/summary` |
 | Upload / Demo | `POST /upload`, `POST /demo/generate`, `DELETE /demo/clear` |
 | Health | `GET /health` |
