@@ -120,7 +120,7 @@ export default function Categories() {
           {isLoading ? (
             <div className="h-48 flex items-center justify-center text-slate-300 text-sm">Loading…</div>
           ) : (
-            <div className="divide-y divide-slate-50">
+            <div>
               {categories.map((cat) => {
                 const spend = spendMap[cat.name];
                 return (

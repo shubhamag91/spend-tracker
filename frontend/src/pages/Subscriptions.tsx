@@ -101,7 +101,7 @@ export default function Subscriptions() {
             </div>
           ) : (
             <table className="w-full text-sm">
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {items.map((it) => (
                   <tr key={it.name} className="hover:bg-slate-50">
                     <td className="px-5 py-3">

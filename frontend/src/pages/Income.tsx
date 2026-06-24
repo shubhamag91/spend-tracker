@@ -216,7 +216,7 @@ export default function Income() {
                 />
               ))}
             </div>
-            <div className="divide-y divide-slate-50">
+            <div>
               {sources.data.map((s) => (
                 <div key={s.name} className="flex items-center gap-3 py-3">
                   <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center flex-shrink-0 text-lg">
