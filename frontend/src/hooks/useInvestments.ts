@@ -22,6 +22,30 @@ export function useInvestmentSummary(
   });
 }
 
+export interface InvestmentMonthly {
+  platforms: string[];
+  data: Array<Record<string, string | number>>;  // each row: { month, label, [platform]: amount }
+}
+
+export function useInvestmentMonthly(
+  mode: string,
+  range?: { start?: string; end?: string },
+  direction: 'debit' | 'credit' = 'debit',
+) {
+  const accountId = useSelectedAccountId();
+  return useQuery<InvestmentMonthly>({
+    placeholderData: keepPreviousData,
+    queryKey: ['investments', 'monthly', mode, accountId, range, direction],
+    queryFn: () => {
+      const params: Record<string, string | number> = { mode, direction };
+      if (accountId != null) params.account_id = accountId;
+      if (range?.start) params.start_date = range.start;
+      if (range?.end) params.end_date = range.end;
+      return client.get('/investments/monthly', { params }).then((r) => r.data);
+    },
+  });
+}
+
 export function useInvestmentRules() {
   return useQuery<InvestmentRule[]>({
     queryKey: ['investment-rules'],

@@ -20,6 +20,26 @@ def _bank_account_ids(db: Session) -> list[int]:
     return [a.id for a in db.query(Account).filter(Account.type == "bank").all()]
 
 
+def _platform_labeler(db: Session):
+    """Return a fn desc -> (display_label, matched_keyword). Each keyword maps to a
+    display label — a rule's own label if set (e.g. INGENICO → Grip), else the keyword
+    title-cased. Unmatched (manually tagged) rows fall back to the normalized merchant."""
+    label_for_keyword: dict[str, str] = {k.upper(): k.title() for k in investment_keywords(db)}
+    for r in db.query(InvestmentRule).all():
+        if r.label:
+            label_for_keyword[r.keyword.upper()] = r.label
+    keywords = list(label_for_keyword.keys())
+
+    def platform_for(desc: str):
+        up = (desc or "").upper()
+        for k in keywords:
+            if k in up:
+                return label_for_keyword[k], k   # (display label, matched keyword)
+        return normalize_merchant(desc), None     # manually tagged, no keyword
+
+    return platform_for
+
+
 def apply_investment_rules(db: Session, mode: str = "real") -> int:
     """Tag bank-account transactions whose description matches any rule keyword as
     investments. Only turns the flag ON, so manual tags/untags are preserved.
@@ -111,23 +131,7 @@ def investments_summary(
         q = q.filter(Transaction.date <= end_date)
     txns = q.all()
 
-    # Group by platform. Each keyword maps to a display label — a rule's own label
-    # if set (e.g. "INGENICO" → "Grip", since Grip routes through Ingenico), else the
-    # keyword title-cased. Config keywords use their title-case. Unmatched (manually
-    # tagged) rows fall back to the normalized merchant.
-    label_for_keyword: dict[str, str] = {k.upper(): k.title() for k in investment_keywords(db)}
-    for r in db.query(InvestmentRule).all():
-        if r.label:
-            label_for_keyword[r.keyword.upper()] = r.label
-    keywords = list(label_for_keyword.keys())
-
-    def platform_for(desc: str):
-        up = (desc or "").upper()
-        for k in keywords:
-            if k in up:
-                return label_for_keyword[k], k   # (display label, matched keyword)
-        return normalize_merchant(desc), None     # manually tagged, no keyword
-
+    platform_for = _platform_labeler(db)
     groups: dict[str, dict] = collections.defaultdict(lambda: {"amounts": [], "keywords": collections.Counter()})
     for t in txns:
         label, kw = platform_for(t.description)
@@ -153,3 +157,47 @@ def investments_summary(
         count=len(txns),
         by_platform=by_platform,
     )
+
+
+@router.get("/investments/monthly")
+def investments_monthly(
+    mode: str = Query("real", pattern="^(real|demo)$"),
+    direction: str = Query("debit", pattern="^(debit|credit)$"),
+    account_id: int | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    db: Session = Depends(get_db),
+):
+    """Per-month, per-platform totals for one direction (debit = invested, credit =
+    returns). Shaped for a stacked bar chart: each row is a month with one key per
+    platform, plus `platforms` ordered by overall total (largest first)."""
+    q = db.query(Transaction).filter(
+        Transaction.data_mode == mode,
+        Transaction.is_investment == True,
+        Transaction.transaction_type == direction,
+    )
+    if account_id is not None:
+        q = q.filter(Transaction.account_id == account_id)
+    if start_date:
+        q = q.filter(Transaction.date >= start_date)
+    if end_date:
+        q = q.filter(Transaction.date <= end_date)
+    txns = q.all()
+
+    platform_for = _platform_labeler(db)
+    monthly: dict[str, dict[str, float]] = collections.defaultdict(lambda: collections.defaultdict(float))
+    totals: collections.Counter = collections.Counter()
+    for t in txns:
+        label, _ = platform_for(t.description)
+        monthly[t.date.strftime("%Y-%m")][label] += t.amount
+        totals[label] += t.amount
+
+    platforms = [p for p, _ in totals.most_common()]   # biggest platform first
+    data = []
+    for ym in sorted(monthly):
+        y, m = ym.split("-")
+        row: dict = {"month": ym, "label": date(int(y), int(m), 1).strftime("%b %y")}
+        for p in platforms:
+            row[p] = round(monthly[ym].get(p, 0.0), 2)
+        data.append(row)
+    return {"platforms": platforms, "data": data}

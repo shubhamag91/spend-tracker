@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useMode } from '../store/demoMode';
 import {
-  useInvestmentSummary, useInvestmentRules,
+  useInvestmentSummary, useInvestmentMonthly, useInvestmentRules,
   useCreateInvestmentRule, useDeleteInvestmentRule, useSetInvestment,
 } from '../hooks/useInvestments';
+import InvestmentMonthlyChart from '../components/charts/InvestmentMonthlyChart';
 import { useSelectedAccountId } from '../store/selectedAccount';
 import { useTransactions, type SortField, type SortDir } from '../hooks/useTransactions';
 import { useByDay } from '../hooks/useAnalytics';
@@ -22,6 +23,7 @@ export default function Investments() {
   const { data: invested, isLoading } = useInvestmentSummary(mode, dateRange, 'debit');
   const { data: returns } = useInvestmentSummary(mode, dateRange, 'credit');
   const summary = isReturns ? returns : invested;  // active view drives the breakdown + list
+  const { data: monthly } = useInvestmentMonthly(mode, dateRange, isReturns ? 'credit' : 'debit');
   const { data: rules } = useInvestmentRules();
   const createRule = useCreateInvestmentRule();
   const deleteRule = useDeleteInvestmentRule();
@@ -119,6 +121,11 @@ export default function Investments() {
           </button>
         ))}
       </div>
+
+      {/* Monthly stacked bars — follows the toggle (invested vs returns), by platform */}
+      {monthly && monthly.data.length > 0 && (
+        <InvestmentMonthlyChart monthly={monthly} isReturns={isReturns} />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Left: transactions */}

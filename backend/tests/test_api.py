@@ -383,6 +383,16 @@ def test_investment_summary_direction_splits_invested_and_returns(client):
     # bad direction rejected by the pattern validator
     assert client.get("/api/investments/summary?mode=real&direction=sideways").status_code == 422
 
+    # monthly endpoint: per-month, per-platform rows for the chart
+    monthly = client.get("/api/investments/monthly?mode=real&direction=debit").json()
+    assert len(monthly["platforms"]) == 1                   # all rows share one platform here
+    plat = monthly["platforms"][0]
+    by_month = {r["month"]: r for r in monthly["data"]}
+    assert by_month["2025-05"][plat] == 80000.0             # both May debits summed
+    assert "2025-06" not in by_month                        # the June row is a credit
+    credit_monthly = client.get("/api/investments/monthly?mode=real&direction=credit").json()
+    assert credit_monthly["data"][0][credit_monthly["platforms"][0]] == 12000.0
+
 
 def test_recurring_requires_consistent_amount_and_cadence(client):
     from datetime import date
