@@ -183,6 +183,14 @@ DB rules combined). On top of that, the **Investments page** lets you manage rul
 survive) and **manually mark/unmark** any bank debit. Investment management is
 bank-only — you invest from a bank, not a card. See §5.5.
 
+The flag runs **both directions**: a matching **debit** is money *invested* (kept out
+of spend); a matching **credit** is a *return*/redemption (kept out of income, shown
+under Investments → Returns) — so a P2P repayment or MF redemption isn't miscounted as
+earnings. A platform **label** can span several keywords (e.g. Grip = `GRIP`, `INGENICO`,
+`LOANX`, `IRONWELL`, `AKME FINTRADE`, …), so list/breakdown filtering matches by **label**
+(any of its keywords), not a single keyword — see the `investment_platform` filter on
+`GET /transactions`.
+
 ### 4.3 `is_card_payment` — card settlement, not spend or income
 Two cases, both kept out of the numbers so card money is counted once:
 - A **debit on a bank account** paying a card bill (`CRED CLUB`, `CREDIT CARD`…) —
@@ -244,15 +252,20 @@ auto-categorisation; create / delete categories. Changes invalidate the
 categorisation cache and apply to future imports.
 
 ### 5.5 Investments (`/investments`)
-Manage what counts as an investment vs. spend (bank accounts only). Shows **total
-invested**, a **by-platform** breakdown (grouped by matched keyword), and the list
-of tagged investment transactions (each with an **Unmark** to send it back to
-spend). A **date-range filter** scopes the totals and the list; **click a platform**
-in the breakdown to filter to it, and sort by date or amount. A **payee-rules** manager (collapsed by default, with delete
-confirmation) lets you add keywords (e.g. `LENDBOX`) + an optional display label
-— matching bank transactions are reclassified immediately and on every future import.
-Tagging an outflow as investment removes it from spend and adds it to the wallet's
-*Invested* bucket, so "spent" reflects real consumption.
+Manage what counts as an investment vs. spend (bank accounts only), and track investment
+**returns** separately from income. The KPI row shows **total invested**, **total
+returns**, and **platform count** — all scoped by a **date-range filter**. An **Invested /
+Returns toggle** switches the by-platform breakdown and the transaction list between
+outflows (money invested, debits) and inflows (returns/redemptions, credits); each row
+has an **Unmark**. A **Monthly invested-vs-returns** chart (grouped bars per month) sits
+above, with **platform-picker chips** to scope it to one platform. **Click a platform** in
+the breakdown to filter the list, and sort by date or amount — filtering is by platform
+**label**, which can span several keywords (e.g. Grip = GRIPX + LoanX + Ironwell + bond
+issuers). A **payee-rules** manager (collapsed by default, with delete confirmation) lets
+you add keywords (e.g. `LENDBOX`) + an optional display label — matching bank transactions
+are reclassified immediately and on every future import. Tagging an outflow as investment
+removes it from spend (wallet *Invested* bucket); tagging an inflow keeps it out of income
+(it's a return of capital, not earnings), so "spent" and "income" both reflect reality.
 
 ### 5.6 Fixed Spends (`/subscriptions`)
 Your recurring monthly commitments — **rent, bills (electricity / internet / phone),

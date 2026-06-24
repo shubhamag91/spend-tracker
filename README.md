@@ -183,7 +183,7 @@ endpoints accept `mode=real|demo` and optional `start_date` / `end_date`.
 | Group | Endpoints |
 |---|---|
 | Analytics | `/analytics/wallet`, `/summary`, `/by-day` · `/by-week` · `/by-month` · `/by-year`, `/by-category`, `/weekly-velocity`, `/heatmap`, `/top-merchants`, `/recurring`, `/insights` — all accept optional `account_id` |
-| Transactions | `GET /transactions` (filters + `sort_by`/`sort_dir`), `POST /transactions/reconcile-transfers`, `PATCH /transactions/{id}/category`, `DELETE /transactions/{id}` |
+| Transactions | `GET /transactions` (filters incl. `transaction_type`, `is_investment`, `investment_platform` (by platform label), `search` + `sort_by`/`sort_dir`), `POST /transactions/reconcile-transfers`, `PATCH /transactions/{id}/category`, `DELETE /transactions/{id}` |
 | Categories | `GET·POST /categories`, `PATCH·DELETE /categories/{id}` |
 | Accounts | `GET·POST /accounts`, `PATCH·DELETE /accounts/{id}`, `GET /accounts/status` (per-account freshness) — bank / card sources, see note below |
 | Investments | `GET·POST /investment-rules`, `DELETE /investment-rules/{id}`, `POST /investment-rules/apply`, `GET /investments/summary` & `GET /investments/monthly` (`summary` takes `direction=debit\|credit` for invested vs returns; `monthly` returns invested-vs-returns per month, optionally scoped to one `platform`, for the comparison chart) |
