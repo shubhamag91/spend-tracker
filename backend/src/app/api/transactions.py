@@ -28,6 +28,7 @@ def list_transactions(
     category_id: Optional[int] = None,
     transaction_type: Optional[str] = None,
     is_investment: Optional[bool] = None,
+    investment_platform: Optional[str] = None,   # filter by platform label (matches any of its keywords)
     search: Optional[str] = None,
     sort_by: str = Query("date", pattern="^(date|amount)$"),
     sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
@@ -48,6 +49,14 @@ def list_transactions(
         q = q.filter(Transaction.transaction_type == transaction_type)
     if is_investment is not None:
         q = q.filter(Transaction.is_investment == is_investment)
+    if investment_platform:
+        # a platform label can span several keywords — match any of them so the list
+        # agrees with the by-platform breakdown count (e.g. Grip = GRIPX + LoanX + …)
+        from sqlalchemy import or_
+        from app.api.investments import platform_keywords
+        kws = platform_keywords(db, investment_platform)
+        needles = kws or [investment_platform]   # manually-tagged label has no keyword
+        q = q.filter(or_(*[Transaction.description.ilike(f"%{kw}%") for kw in needles]))
     if search:
         q = q.filter(Transaction.description.ilike(f"%{search}%"))
 

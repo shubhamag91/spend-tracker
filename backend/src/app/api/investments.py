@@ -40,6 +40,17 @@ def _platform_labeler(db: Session):
     return platform_for
 
 
+def platform_keywords(db: Session, label: str) -> list[str]:
+    """Every keyword that maps to a given platform label. A label can span several
+    keywords (e.g. Grip = GRIP, INGENICO, LOANX, IRONWELL, …), so filtering a list by
+    a single keyword misses rows — callers should match ANY of these."""
+    label_for_keyword: dict[str, str] = {k.upper(): k.title() for k in investment_keywords(db)}
+    for r in db.query(InvestmentRule).all():
+        if r.label:
+            label_for_keyword[r.keyword.upper()] = r.label
+    return [kw for kw, lab in label_for_keyword.items() if lab == label]
+
+
 def apply_investment_rules(db: Session, mode: str = "real") -> int:
     """Tag bank-account transactions whose description matches any rule keyword as
     investments. Only turns the flag ON, so manual tags/untags are preserved.

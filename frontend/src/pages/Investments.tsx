@@ -48,7 +48,7 @@ export default function Investments() {
   const { data: txns } = useTransactions({
     mode, account_id: accountId, is_investment: true,
     transaction_type: isReturns ? 'credit' : 'debit',
-    search: platform?.keyword,
+    investment_platform: platform?.name,
     start_date: dateRange?.start, end_date: dateRange?.end,
     sort_by: sortBy, sort_dir: sortDir, page, page_size: 25,
   });

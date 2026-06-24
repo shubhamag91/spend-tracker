@@ -398,6 +398,36 @@ def test_investment_summary_direction_splits_invested_and_returns(client):
         assert (inv == 80000.0 and ret == 0.0) or (inv == 0.0 and ret == 12000.0)
 
 
+def test_investment_platform_filter_matches_all_keywords_of_a_label(client):
+    """A platform label can span several keywords (Grip = GRIPX + LoanX + …).
+    Filtering the list by investment_platform must match ALL of them, unlike a
+    single-keyword search — so the list agrees with the by-platform count."""
+    from datetime import date
+    from app.models.account import Account
+    from app.models.investment_rule import InvestmentRule
+    db = TestingSession()
+    bank = Account(name="Bank", type="bank")
+    db.add(bank); db.commit(); db.refresh(bank)
+    db.add_all([
+        InvestmentRule(keyword="GRIPX", label="Grip"),
+        InvestmentRule(keyword="LOANX", label="Grip"),   # same label, different keyword
+    ])
+    db.add_all([
+        Transaction(date=date(2025, 5, 1), amount=1000.0, transaction_type="credit",
+                    description="NEFT Cr GRIPX BIRCH", source="t", data_mode="real",
+                    row_hash="g1", account_id=bank.id, is_investment=True),
+        Transaction(date=date(2025, 5, 2), amount=2000.0, transaction_type="credit",
+                    description="NEFT Cr LOANX SORREL", source="t", data_mode="real",
+                    row_hash="g2", account_id=bank.id, is_investment=True),
+    ])
+    db.commit(); db.close()
+
+    both = client.get("/api/transactions?mode=real&is_investment=true&investment_platform=Grip").json()
+    assert both["total"] == 2                                  # label catches both keywords
+    one = client.get("/api/transactions?mode=real&is_investment=true&search=GRIPX").json()
+    assert one["total"] == 1                                   # a single keyword catches only one
+
+
 def test_recurring_requires_consistent_amount_and_cadence(client):
     from datetime import date
     db = TestingSession()
