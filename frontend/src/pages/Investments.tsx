@@ -38,7 +38,7 @@ export default function Investments() {
     : undefined;
 
   const { data: txns } = useTransactions({
-    mode, account_id: accountId, is_investment: true,
+    mode, account_id: accountId, is_investment: true, transaction_type: 'debit',
     search: platform?.keyword,
     start_date: dateRange?.start, end_date: dateRange?.end,
     sort_by: sortBy, sort_dir: sortDir, page, page_size: 25,
