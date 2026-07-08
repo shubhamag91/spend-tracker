@@ -4,6 +4,7 @@ import {
   useSubscriptionSummary, useSubscriptionRules,
   useCreateSubscriptionRule, useUpdateSubscriptionRule, useDeleteSubscriptionRule,
 } from '../hooks/useSubscriptions';
+import { useCashExpenses, useCreateCashExpense, useDeleteCashExpense } from '../hooks/useCashExpenses';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
 
@@ -39,6 +40,20 @@ export default function Subscriptions() {
   const updateRule = useUpdateSubscriptionRule();
   const deleteRule = useDeleteSubscriptionRule();
   const [form, setForm] = useState({ name: '', keyword: '', type: 'Rent', frequency: 'monthly', minAmount: '', monthlyAmount: '' });
+
+  const { data: cashExpenses } = useCashExpenses();
+  const createCash = useCreateCashExpense();
+  const deleteCash = useDeleteCashExpense();
+  const [cashForm, setCashForm] = useState({ name: '', amount: '', day: '1', type: 'Staff' });
+
+  function addCash(e: React.FormEvent) {
+    e.preventDefault();
+    if (!cashForm.name.trim() || !cashForm.amount) return;
+    createCash.mutate(
+      { name: cashForm.name.trim(), amount: Number(cashForm.amount), day_of_month: Number(cashForm.day) || 1, type: cashForm.type.trim() || 'Cash' },
+      { onSuccess: () => setCashForm({ ...cashForm, name: '', amount: '' }) },
+    );
+  }
 
   function addRule(e: React.FormEvent) {
     e.preventDefault();
@@ -127,8 +142,9 @@ export default function Subscriptions() {
           )}
         </div>
 
-        {/* Right: rules manager */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 h-fit">
+        {/* Right: managers */}
+        <div className="space-y-5 h-fit">
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
           <h2 className="font-semibold text-slate-800">Tracked items</h2>
           <p className="text-xs text-slate-400 mt-0.5 mb-3">Any transaction whose description contains the keyword is counted here. Pick its billing frequency so the monthly cost is right (e.g. a 3-month broadband plan = quarterly).</p>
           <form onSubmit={addRule} className="space-y-2 mb-3">
@@ -207,6 +223,63 @@ export default function Subscriptions() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Cash expenses — recurring spends that never hit a statement (cook, maid…) */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h2 className="font-semibold text-slate-800">Cash expenses</h2>
+          <p className="text-xs text-slate-400 mt-0.5 mb-3">Recurring cash payments that never appear on a statement (cook, maid, driver…). Each one auto-adds a monthly entry to spend &amp; the list above — no manual entry.</p>
+          <form onSubmit={addCash} className="space-y-2 mb-3">
+            <input
+              value={cashForm.name}
+              onChange={(e) => setCashForm({ ...cashForm, name: e.target.value })}
+              placeholder="Name (e.g. House cook)"
+              className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+            />
+            <div className="flex gap-2">
+              <input
+                type="number"
+                value={cashForm.amount}
+                onChange={(e) => setCashForm({ ...cashForm, amount: e.target.value })}
+                placeholder="₹ / month"
+                className="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+              />
+              <input
+                list="fixed-types"
+                value={cashForm.type}
+                onChange={(e) => setCashForm({ ...cashForm, type: e.target.value })}
+                placeholder="Type"
+                className="w-24 min-w-0 border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+              />
+              <input
+                type="number" min="1" max="28"
+                value={cashForm.day}
+                onChange={(e) => setCashForm({ ...cashForm, day: e.target.value })}
+                title="Day of month it's paid"
+                className="w-16 min-w-0 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+              />
+            </div>
+            <button type="submit" disabled={createCash.isPending} className="w-full px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50">Add cash expense</button>
+          </form>
+          <div className="space-y-1.5">
+            {(cashExpenses ?? []).length === 0 && <p className="text-sm text-slate-400">None yet.</p>}
+            {(cashExpenses ?? []).map((c) => (
+              <div key={c.id} className="flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-3 py-1.5">
+                <div className="min-w-0">
+                  <span className="text-sm font-medium text-slate-700 truncate">{c.name}</span>
+                  <span className="text-xs text-slate-400 ml-1.5">{formatCurrency(c.amount)}/mo · day {c.day_of_month}</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${typeClass(c.type)}`}>{c.type}</span>
+                  <button
+                    onClick={() => { if (window.confirm(`Remove "${c.name}"? Its generated monthly entries will be deleted too.`)) deleteCash.mutate(c.id); }}
+                    className="text-slate-400 hover:text-red-600 text-sm" title="Remove (deletes its generated entries)"
+                  >&times;</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
         </div>
       </div>
     </div>

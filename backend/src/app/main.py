@@ -10,7 +10,8 @@ from app.config import settings
 from app.database import engine, SessionLocal, Base
 from app.models import Account, Category, InvestmentRule, Transaction, IngestLog  # noqa: F401 — ensures models are registered
 from app.migrations import run_migrations
-from app.api import accounts, categories, transactions, analytics, uploads, demo, investments, subscriptions
+from app.api import accounts, categories, transactions, analytics, uploads, demo, investments, subscriptions, cash_expenses
+from app.utils.cash_expenses import sync_cash_expenses
 from app.categorization.rules import DEFAULT_CATEGORIES
 from app.watcher.file_watcher import start_watcher
 
@@ -47,6 +48,7 @@ async def lifespan(app: FastAPI):
     try:
         _seed_categories(db)
         _seed_subscription_rules(db)
+        sync_cash_expenses(db)   # materialise recurring cash expenses through today
     finally:
         db.close()
     start_watcher(settings.watched_folder)
@@ -66,6 +68,7 @@ app.add_middleware(
 app.include_router(accounts.router, prefix="/api")
 app.include_router(investments.router, prefix="/api")
 app.include_router(subscriptions.router, prefix="/api")
+app.include_router(cash_expenses.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
 app.include_router(transactions.router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")

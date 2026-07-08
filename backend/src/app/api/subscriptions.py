@@ -93,9 +93,11 @@ def subscriptions_summary(
     monthly cost using its frequency (quarterly /3, yearly /12, etc.). Variable
     (lump-sum) items are averaged over the data window. Reporting overlay only —
     these stay counted as spend."""
+    from app.models.cash_expense import CashExpense
     rules = db.query(SubscriptionRule).all()
+    has_cash = db.query(CashExpense.id).filter(CashExpense.active == True).first() is not None  # noqa: E712
     empty = SubscriptionSummary(monthly_total=0, window_total=0, service_count=0, by_type=[], items=[])
-    if not rules:
+    if not rules and not has_cash:
         return empty
 
     base = [
@@ -108,7 +110,7 @@ def subscriptions_summary(
     if account_id is not None:
         base.append(Transaction.account_id == account_id)
     txns = db.query(Transaction).filter(*base).all()
-    if not txns:
+    if not txns and not has_cash:
         return empty
 
     # data window in months, used to average "variable" lump-sum items
@@ -152,6 +154,20 @@ def subscriptions_summary(
             amount=round(latest, 2), total=round(total, 2),
             count=len(ts), last_date=ts_sorted[-1].date.isoformat(),
         ))
+    # Cash expenses (cook, maid, …) are recurring debits generated from CashExpense
+    # rows; they don't match a subscription rule, so add them as first-class items.
+    from app.models.cash_expense import CashExpense
+    from app.utils.cash_expenses import CASH_SOURCE
+    for e in db.query(CashExpense).filter(CashExpense.active == True).all():  # noqa: E712
+        ets = sorted((t for t in txns if t.source == CASH_SOURCE and (t.description or "") == e.name),
+                     key=lambda x: x.date)
+        items.append(SubscriptionItem(
+            name=e.name, type=e.type, frequency=e.frequency, monthly=round(e.amount, 2),
+            amount=round(ets[-1].amount if ets else e.amount, 2),
+            total=round(sum(t.amount for t in ets), 2), count=len(ets),
+            last_date=ets[-1].date.isoformat() if ets else None,
+        ))
+
     items.sort(key=lambda i: i.monthly, reverse=True)
 
     type_tot: dict[str, list[float]] = collections.defaultdict(list)

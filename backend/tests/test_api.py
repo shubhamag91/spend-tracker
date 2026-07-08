@@ -184,6 +184,29 @@ def test_poker_bucket_excluded_and_reconcile_safe(client):
     assert client.get("/api/analytics/summary?mode=real").json()["total_spend"] == 900.0
 
 
+def test_cash_expense_generates_recurring_spend(client):
+    """A cash expense materialises a monthly debit up to today — flowing into spend
+    and the Fixed Spends summary — and delete removes its generated entries."""
+    r = client.post("/api/cash-expenses", json={
+        "name": "House Cook", "amount": 8000, "day_of_month": 1, "type": "Staff",
+        "start_date": "2026-04-01",
+    })
+    assert r.status_code == 201
+    exp_id = r.json()["expense"]["id"]
+
+    spend = client.get("/api/transactions?mode=real&kind=spend&page_size=200").json()
+    cook = [t for t in spend["items"] if t["description"] == "House Cook"]
+    assert len(cook) >= 3 and all(t["amount"] == 8000.0 for t in cook)   # ≥ Apr/May/Jun
+
+    fx = client.get("/api/subscriptions/summary?mode=real").json()
+    item = [it for it in fx["items"] if it["name"] == "House Cook"]
+    assert item and item[0]["monthly"] == 8000.0 and item[0]["type"] == "Staff"
+
+    assert client.delete(f"/api/cash-expenses/{exp_id}").status_code == 204
+    after = client.get("/api/transactions?mode=real&kind=spend&page_size=200").json()
+    assert not [t for t in after["items"] if t["description"] == "House Cook"]
+
+
 def test_analytics_summary_top_category_respects_date_range(client, seed_transactions):
     """top_category must be date-scoped like the rest of the summary — a range with no
     spend should report no top category, not the all-time one (regression)."""
