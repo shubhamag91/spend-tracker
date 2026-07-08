@@ -1,11 +1,8 @@
-import { useState } from 'react';
 import type { Transaction } from '../../types';
 import type { SortField, SortDir } from '../../hooks/useTransactions';
-import { useCategories } from '../../hooks/useCategories';
-import { useUpdateCategory, useSetTransfer } from '../../hooks/useTransactions';
+import { useSetTransfer } from '../../hooks/useTransactions';
 import { useSetInvestment } from '../../hooks/useInvestments';
 import { formatDate, formatCurrency } from '../../utils/formatters';
-import CategoryBadge from './CategoryBadge';
 import LoadingSpinner from '../shared/LoadingSpinner';
 
 interface Props {
@@ -42,40 +39,14 @@ function SortHeader({
   );
 }
 
-function CategoryDropdown({ txnId, currentCategoryId }: { txnId: number; currentCategoryId: number | null }) {
-  const { data: categories } = useCategories();
-  const updateCategory = useUpdateCategory();
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="text-xs text-indigo-600 hover:underline"
-      >
-        Change
-      </button>
-      {open && (
-        <div className="absolute z-20 left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 min-w-40">
-          <button
-            className="w-full text-left px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50"
-            onClick={() => { updateCategory.mutate({ txnId, categoryId: null }); setOpen(false); }}
-          >
-            Uncategorized
-          </button>
-          {categories?.map((cat) => (
-            <button
-              key={cat.id}
-              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-slate-50 ${cat.id === currentCategoryId ? 'font-semibold' : ''}`}
-              onClick={() => { updateCategory.mutate({ txnId, categoryId: cat.id }); setOpen(false); }}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+// The transaction's classification — mirrors the filter tabs (Spend / Income / …).
+function txnKind(t: Transaction): { label: string; cls: string } {
+  if (t.is_investment) return { label: '📈 Investment', cls: 'bg-indigo-50 text-indigo-600' };
+  if (t.bucket === 'poker') return { label: '🃏 Poker', cls: 'bg-purple-100 text-purple-700' };
+  if (t.is_internal_transfer) return { label: '↔ Transfer', cls: 'bg-slate-100 text-slate-500' };
+  if (t.is_card_payment) return { label: 'Card payment', cls: 'bg-sky-100 text-sky-700' };
+  if (t.transaction_type === 'credit') return { label: 'Income', cls: 'bg-emerald-100 text-emerald-700' };
+  return { label: 'Spend', cls: 'bg-amber-100 text-amber-700' };
 }
 
 export default function TransactionTable({ transactions, isLoading, total, totalAmount, page, totalPages, onPageChange, sortBy, sortDir, onSort }: Props) {
@@ -120,7 +91,7 @@ export default function TransactionTable({ transactions, isLoading, total, total
             <tr>
               <SortHeader label="Date" field="date" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
               <th className="px-4 py-3 text-left">Description</th>
-              <th className="px-4 py-3 text-left">Category</th>
+              <th className="px-4 py-3 text-left">Type</th>
               <th className="px-4 py-3 text-left">Account</th>
               <SortHeader label="Amount" field="amount" sortBy={sortBy} sortDir={sortDir} onSort={onSort} align="right" />
             </tr>
@@ -132,30 +103,6 @@ export default function TransactionTable({ transactions, isLoading, total, total
                 <td className="px-4 py-3 text-slate-800 max-w-xs">
                   <div className="flex items-center gap-2">
                     <span className="truncate">{txn.description}</span>
-                    {txn.bucket === 'poker' && (
-                      <span
-                        className="flex-shrink-0 text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full"
-                        title="Poker settlement — excluded from spend & income"
-                      >
-                        🃏 Poker
-                      </span>
-                    )}
-                    {txn.is_internal_transfer && txn.bucket !== 'poker' && (
-                      <span
-                        className="flex-shrink-0 text-[10px] font-semibold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full"
-                        title="Transfer (own-account move or a loan/repayment) — excluded from spend & income"
-                      >
-                        ↔ Transfer
-                      </span>
-                    )}
-                    {txn.is_investment && (
-                      <span
-                        className="flex-shrink-0 text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded-full"
-                        title="Tagged as an investment — excluded from spend"
-                      >
-                        📈 Investment
-                      </span>
-                    )}
                     {/* Mark/unmark investment — bank debits only (you invest from a bank, not a card) */}
                     {txn.account?.type === 'bank' && txn.transaction_type === 'debit' && !txn.is_internal_transfer && (
                       <button
@@ -179,14 +126,10 @@ export default function TransactionTable({ transactions, isLoading, total, total
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    {txn.category ? (
-                      <CategoryBadge name={txn.category.name} color={txn.category.color} />
-                    ) : (
-                      <span className="text-xs text-slate-400">Uncategorized</span>
-                    )}
-                    <CategoryDropdown txnId={txn.id} currentCategoryId={txn.category?.id ?? null} />
-                  </div>
+                  {(() => {
+                    const k = txnKind(txn);
+                    return <span className={`text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${k.cls}`}>{k.label}</span>;
+                  })()}
                 </td>
                 <td className="px-4 py-3">
                   {txn.account ? (
