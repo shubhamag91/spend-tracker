@@ -75,6 +75,21 @@ Core ingestion, categorization, and visualization.
 - [x] **HDFC card "EMI" label cleanup** — strips the misleading leading `EMI ` HDFC prints on some full (non-installment) charges, so descriptions are the real merchant name.
 - [x] **Stricter recurring detection** — `/analytics/recurring` now requires a consistent amount and a periodic cadence, dropping unrelated repeat payments to the same payee.
 
+### App slim-down, classification & audit ✅
+
+- [x] **App slimmed to four tabs** — nav is now **Spends · Transactions · Fixed Spends · Investments**. **Income** and **Categories** were **removed from the nav** (routes still registered + data/endpoints intact — reachable by URL, hidden not deleted).
+- [x] **Dashboard rebuilt as "Spends"** — headline *You spent ₹X* (date-filtered) with txn count + daily average, a **Monthly trend** bar chart, a **Recent transactions** list, and the account-freshness card. Removed the wallet/"Unspent in wallet" hero and the patterns/heatmap/insights charts (endpoints still exist).
+- [x] **Transactions `kind` filter** — segmented tabs **All · Spends · Income · Investments · Transfers · Poker**, backed by `GET /transactions?kind=…` (derived from the row flags/bucket).
+- [x] **Account column** — the transactions table shows the actual bank/card account (🏦/💳) instead of the import-file "Source".
+- [x] **Type column + running total** — a colored per-row tag (Spend/Income/Investment/Transfer/Poker/Card payment) replaces the per-row category badge + "Change" dropdown; the list header shows a `total_amount` of all matching rows.
+- [x] **`bucket` classification column** — nullable `poker` / `transfer` (additive DB migration). **Poker** settlements tagged from `config.poker_keywords` (e.g. `KANSOUWA`) and kept out of spend/income; **manual transfer marking** via `PATCH /transactions/{id}/transfer` for washes auto-detection misses (e.g. a loan to a friend that's repaid).
+- [x] **Reconcile is manual-mark-proof** — `reconcile_internal_transfers` now skips any row with a `bucket` set, so poker + manual transfer marks survive re-imports (was a real bug that wiped them).
+- [x] **Investment returns** — Invested/Returns toggle, a **Total returns** KPI, a monthly invested-vs-returns grouped-bar chart with a platform picker; `investment_platform` filter (label can span multiple keywords) on `GET /transactions`; `direction=debit|credit` on `GET /investments/summary` + `GET /investments/monthly`.
+- [x] **Security / audit fixes** — SPA catch-all now contains the requested path inside `frontend/dist` (was a path-traversal that could serve the DB); dev server binds `127.0.0.1` by default (`HOST` to override) since it serves real data with no auth; `/analytics/summary` `top_category` is now date-scoped (was all-time); `GET /transactions` `transaction_type` gets a pattern validator.
+- [x] **HDFC card blank-description fix** — HDFC "payment received" lines (no extractable text) now parse as a credit `PAYMENT RECEIVED` → treated as a card payment (excluded), instead of defaulting to a debit/spend.
+- [x] **Dark mode** — a dark theme via remapped Tailwind surface utilities (`frontend/src/index.css`).
+- [x] **Richer demo data** — synthetic data now spans spend / income / investments / returns so every page is populated.
+
 ---
 
 ## Later

@@ -17,7 +17,7 @@ toggle for sharing without exposing real finances.
 ┌─────────────────────────────────────────────────────────────────────┐
 │                            Frontend                                  │
 │  React 19 + TypeScript + Vite + Tailwind + Recharts + TanStack Query │
-│  Pages: Dashboard · Transactions · Investments · Fixed Spends · …    │
+│  Pages: Spends · Transactions · Fixed Spends · Investments           │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │ HTTP (proxied via Vite dev server, /api)
 ┌──────────────────────────────▼──────────────────────────────────────┐
@@ -40,17 +40,17 @@ toggle for sharing without exposing real finances.
 - **Manual upload**: Drag-and-drop upload from the dashboard UI
 - **Multi-bank support**: HDFC, ICICI, and a generic CSV fallback via a registry pattern; PDF (pdfplumber) and Excel (openpyxl/xlrd) parsers
 - **Credit-card statements**: Dedicated PDF parsers for HDFC, SBI, Axis, and American Express cards (password-protected statements decrypted via pypdf); card charges become per-merchant spend, card payments/cashback stay out of income
-- **Smart classification**: Auto-detects internal transfers (self top-ups) and investments (Grip, Zerodha, Groww, SIPs…) and keeps them out of "spend"
+- **Smart classification**: Auto-detects internal transfers (self top-ups) and investments (Grip, Zerodha, Groww, SIPs…) and keeps them out of "spend"; a `bucket` column further separates **poker** settlements (config keyword, e.g. `KANSOUWA`) and **manually-marked transfers** (a wash like a loan to a friend that gets repaid), both excluded from spend & income
 - **Cross-account transfer detection**: Moves between two of your own accounts are matched (debit↔credit) and excluded from spend & income
 - **Per-account view**: Tag each statement to its account on upload; an account selector scopes the whole dashboard to one bank/card or shows them combined
-- **Account freshness**: A dashboard card shows each account's *data-through* date with a colour-coded staleness dot, so you know which statement to import next
+- **Account freshness**: A card on the Spends page shows each account's *data-through* date with a colour-coded staleness dot, so you know which statement to import next
 - **Investment management**: A dedicated Investments page with payee rules (e.g. Lendbox, Indian Clearing) + one-click manual tagging keeps investments out of "spend" — for existing and future imports (bank accounts only); a rule can carry a display label so the breakdown shows the real platform (e.g. keyword `INGENICO` → `Grip`). An **Invested / Returns toggle** views outflows (money invested) vs inflows (redemptions/payouts) separately, with KPIs for total invested, total returns, and platform count
 - **Fixed-spends tracker**: A dedicated page for recurring monthly commitments — rent, bills (electricity/internet/phone), EMIs, and subscriptions (Netflix, Spotify, Claude…) — detected by name and **normalised to a monthly cost** by each item's billing frequency (quarterly ÷3, variable lump-sums averaged); rules can carry a min-amount floor so one merchant string can be split into multiple bills (e.g. parents' electricity vs phone, both via Airtel Payments Bank), or a fixed monthly-amount override for lump-sum prepaids (e.g. a ₹20,007 maintenance recharge that's really ₹5,200/month)
 - **Auto-categorization**: Editable keyword rules assign categories (Food, Transport, Groceries…)
 - **Analytics**: Wallet breakdown, category spend, weekly velocity, day-of-week heatmap, top merchants, merchant-normalized recurring detection, and plain-English insights
 - **Sortable transactions**: Sort the transactions table by date or amount
 - **Date filtering**: This Month / Last Month / Last 30 Days / This Year / All Time + a custom range clamped to your data
-- **Demo mode**: Toggle between your real data and synthetic demo data — perfect for resume/portfolio sharing. Demo spans ~13 months of spend, income, investments and returns, so every page (Dashboard, Income, Investments) is populated
+- **Demo mode**: Toggle between your real data and synthetic demo data — perfect for resume/portfolio sharing. Demo spans ~13 months of spend, income, investments and returns, so every page (Spends, Transactions, Investments) is populated
 - **Deduplication**: Re-importing the same file is safe — file-level and row-level SHA-256 guards prevent duplicates
 
 ## The wallet model
@@ -183,7 +183,7 @@ endpoints accept `mode=real|demo` and optional `start_date` / `end_date`.
 | Group | Endpoints |
 |---|---|
 | Analytics | `/analytics/wallet`, `/summary`, `/by-day` · `/by-week` · `/by-month` · `/by-year`, `/by-category`, `/weekly-velocity`, `/heatmap`, `/top-merchants`, `/recurring`, `/insights` — all accept optional `account_id` |
-| Transactions | `GET /transactions` (filters incl. `transaction_type`, `is_investment`, `investment_platform` (by platform label), `search` + `sort_by`/`sort_dir`), `POST /transactions/reconcile-transfers`, `PATCH /transactions/{id}/category`, `DELETE /transactions/{id}` |
+| Transactions | `GET /transactions` (filters incl. `kind` (`spend`\|`income`\|`investment`\|`transfer`\|`poker`), `transaction_type`, `is_investment`, `investment_platform` (by platform label), `search` + `sort_by`/`sort_dir`; response carries a `total_amount` of all matching rows), `POST /transactions/reconcile-transfers`, `PATCH /transactions/{id}/category`, `PATCH /transactions/{id}/transfer?is_transfer=` (manually mark/unmark a transfer), `DELETE /transactions/{id}` |
 | Categories | `GET·POST /categories`, `PATCH·DELETE /categories/{id}` |
 | Accounts | `GET·POST /accounts`, `PATCH·DELETE /accounts/{id}`, `GET /accounts/status` (per-account freshness) — bank / card sources, see note below |
 | Investments | `GET·POST /investment-rules`, `DELETE /investment-rules/{id}`, `POST /investment-rules/apply`, `GET /investments/summary` & `GET /investments/monthly` (`summary` takes `direction=debit\|credit` for invested vs returns; `monthly` returns invested-vs-returns per month, optionally scoped to one `platform`, for the comparison chart) |
@@ -204,7 +204,7 @@ Full reference in [§6 of the docs](docs/DOCUMENTATION.md#6-api-reference).
 
 **Wallet model over income model**: loaded / invested / spent / unspent buckets, not income/savings — see the docs for why this account type needs it.
 
-**Classification flags**: `is_internal_transfer` and `is_investment` are set at import time; spend analytics exclude both, so "spent" is real consumption.
+**Classification flags**: `is_internal_transfer` and `is_investment` are set at import time; spend analytics exclude both, so "spent" is real consumption. A nullable `bucket` column tags **poker** and **manually-marked transfers**; reconcile-on-import skips any row with a `bucket` set, so manual marks survive re-imports.
 
 **Parser Registry pattern**: each parser implements `can_parse(filepath, headers)` and `parse()`. The registry tries parsers in priority order — specific banks first, generic fallback last. Adding a bank needs only a new file.
 

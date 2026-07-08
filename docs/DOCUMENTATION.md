@@ -1,6 +1,6 @@
 # Spend Tracker — Documentation
 
-_Last updated: June 2026 · single canonical reference_
+_Last updated: July 2026 · single canonical reference_
 
 The complete guide to Spend Tracker — the mental model, every screen, the full
 API, backend internals, and how each number is computed.
@@ -105,7 +105,7 @@ savings rate, income stability, income diversification, monthly budgets.
 ┌─────────────────────────────────────────────────────────────────────┐
 │                            Frontend                                  │
 │  React 19 + TypeScript + Vite + Tailwind + Recharts + TanStack Query │
-│  Pages: Dashboard · Transactions · Investments · Fixed Spends · …    │
+│  Pages: Spends · Transactions · Fixed Spends · Investments           │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │ HTTP (proxied via Vite dev server, /api)
 ┌──────────────────────────────▼──────────────────────────────────────┐
@@ -156,7 +156,15 @@ Runs after every ingestion and on demand via `POST /api/transactions/reconcile-t
 This is the reliable signal once you have ≥2 accounts: an incoming salary/vendor
 payment has **no matching debit**, so it is correctly kept as income rather than
 mistaken for a self-transfer.
-Detector: `backend/src/app/utils/interbank.py`.
+Detector: `backend/src/app/utils/interbank.py`. Reconcile resets the transfer flag on
+bank rows before re-deriving pairs, but **skips any row with a `bucket` set** (§4.4),
+so poker tags and manual transfer marks survive a re-import.
+
+**c) Manual marking.** Auto-detection can't see third-party washes — e.g. a loan to a
+friend that later gets repaid. `PATCH /api/transactions/{id}/transfer?is_transfer=`
+sets `is_internal_transfer` and `bucket="transfer"` on a row (a "mark transfer / unmark
+transfer" action in the transactions table), excluding it from spend & income; because
+it carries a `bucket`, reconcile leaves it alone on the next import.
 
 **b) Name-based (single statement).** When only one account is in play, a credit is
 a self-transfer when your own name appears right after a transfer reference:
@@ -201,7 +209,20 @@ Two cases, both kept out of the numbers so card money is counted once:
 Card *debits* (the charges themselves) are real per-merchant **spend**. Set in the
 normalizer (`_CARD_SOURCES`) · bank-side keywords in `config.py` → `card_payment_keywords`.
 
-### 4.4 How the flags affect analytics
+### 4.4 `bucket` — poker & manual transfers
+A nullable **`bucket`** column carries classification that isn't captured by the two
+boolean flags (values so far: `"poker"`, `"transfer"`). Both are excluded from spend
+and income, and both are addressable via the `kind` filter on `GET /transactions`.
+
+- **Poker** — the import normalizer tags any row matching `config.poker_keywords`
+  (currently `["KANSOUWA"]`) with `bucket="poker"` **and** `is_internal_transfer=True`,
+  so poker settlements don't distort spend or income and are filterable via `kind=poker`.
+- **Transfer** — a manual mark (§4.1c) sets `bucket="transfer"`.
+
+Because `reconcile_internal_transfers` skips any row with a `bucket` set, these tags are
+**re-import-proof** (a prior bug wiped manual marks on every re-import; fixed).
+
+### 4.5 How the flags affect analytics
 | Bucket | Internal transfers | Investments | Card payments |
 |---|---|---|---|
 | **Spend** analytics (all `/analytics/*` except `/wallet`) | excluded | excluded | excluded |
@@ -213,39 +234,54 @@ normalizer (`_CARD_SOURCES`) · bank-side keywords in `config.py` → `card_paym
 
 ## 5. The screens
 
-Six pages, navigated from the top bar: **Dashboard · Transactions · Investments · Fixed Spends · Income · Categories**.
+The nav is exactly **four tabs: Spends · Transactions · Fixed Spends · Investments**.
+The **Income** (`/income`, §5.3) and **Categories** (`/categories`, §5.4) pages were
+**removed from the nav** — their routes are still registered and reachable by URL, and
+their data and endpoints still exist; they're hidden, not deleted.
 
 The top bar also holds two global scopes that apply to every page: the **demo-mode
 toggle** (real vs synthetic data) and the **account selector** — "All accounts" for
 the combined view, or any single bank/card to drill in. Switching either re-scopes
 and refetches the whole dashboard.
 
-### 5.1 Dashboard (`/`)
-Home overview. Adapts to the selected date range and shows the actual data window
-on top (e.g. "Showing 1 Jan 2026 – 24 May 2026"). If the period has no data, the
-page collapses to a single empty state — no empty tabs.
+### 5.1 Spends (`/`)
+The home page (the old Dashboard, rebuilt clean). Adapts to the selected date range and
+shows the actual data window on top (e.g. "Showing 1 Jan 2026 – 24 May 2026"). If the
+period has no data, the page collapses to a single empty state.
 
-- **Hero** — the wallet story: *You spent ₹X of ₹Y loaded · ₹Z invested · Unspent ₹W*, with a segmented `[Invested][Spent][Unspent]` bar.
-- **KPI strip** — Daily spend · Spend txns · Top category.
+- **Headline** — *You spent ₹X* for the selected range, with the **transaction count** and **daily average** beneath it.
+- **Monthly trend** — a bar chart of spend per month.
+- **Recent transactions** — a short list of the latest spends.
 - **Account freshness** — each bank/card with its *data-through* date and a colour-coded staleness dot (🟢 ≤7d, 🟡 ≤30d, 🔴 >30d), so you can see which account needs a fresh statement.
-- **Tab: Overview** — *Where your money went* (category breakdown) + *Insights*.
-- **Tab: Patterns & Trends** — Weekly spend velocity · Day-of-week heatmap · Top merchants · Recurring transactions.
 - **Date control** — preset pills + a Custom Range picker pre-filled with and clamped to your real data bounds.
+
+(The old wallet/"Unspent in wallet" hero and the patterns/heatmap/insights charts were
+removed from this page; the underlying `/analytics/*` endpoints still exist.)
 
 ### 5.2 Transactions (`/transactions`)
 The source of truth — filterable, sortable, paginated table of every transaction.
+- **Kind filter** — segmented tabs **All · Spends · Income · Investments · Transfers · Poker** (backed by `GET /transactions?kind=…`, §6).
 - Filter by date range, category, type (debit/credit).
 - **Sort** by clicking the Date or Amount column header (toggles asc/desc).
-- Inline category change per row.
+- **Running total** — the list header shows the summed amount of all matching rows (`total_amount` on the response).
+- **Account column** — the row's actual bank/card account name with a 🏦/💳 icon (replaces the old import-file "Source" column).
+- **Type column** — a colored tag per row (Spend / Income / Investment / Transfer / Poker / Card payment) derived from the row's flags. This replaces the old per-row category badge + "Change" dropdown; categorization still runs in the backend, it's just no longer surfaced per-row here.
+- **Mark / unmark transfer** — a per-row action (`PATCH /transactions/{id}/transfer`, §4.1c) for washes auto-detection misses.
 - Internal transfers (including matched inter-account transfers) badged `↔ Internal` with a muted amount.
 
 ### 5.3 Income (`/income`)
+> ℹ️ **Hidden from the nav** — the route and its endpoints still exist and the page is
+> reachable by URL, but it's no longer linked (data hidden, not deleted).
+
 > ⚠️ Built for variable/freelance income (stability score, expected-vs-actual,
 > diversification, savings trajectory). For a salaried-funded spending wallet these
 > are largely **not meaningful** — real income lands in the salary account. Slated
 > to be replaced by a Wallet view (§14).
 
 ### 5.4 Categories (`/categories`)
+> ℹ️ **Hidden from the nav** — like Income, the route/endpoints remain and the page is
+> reachable by URL; auto-categorization still runs in the backend, it's just not linked.
+
 Two-panel manager — list on the left (auto-selects first, never empty), editor on
 the right. Edit name, colour, and the **keyword rules** that drive
 auto-categorisation; create / delete categories. Changes invalidate the
@@ -299,7 +335,7 @@ account; omit for the combined view), and optional `start_date` / `end_date` (IS
 | Endpoint | Returns |
 |---|---|
 | `GET /wallet` | **Loaded / Top-ups / Invested / Spent / Unspent** (the wallet model) |
-| `GET /summary` | Total spend, total credits, daily average, top category, txn count |
+| `GET /summary` | Total spend, total credits, daily average, top category, txn count — `top_category` is now scoped to the selected date range (was all-time) |
 | `GET /by-day` · `/by-week` · `/by-month` · `/by-year` | Spend time-series |
 | `GET /by-category` | Spend per category with % share |
 | `GET /weekly-velocity` | Per-week spend + week-over-week % change |
@@ -315,10 +351,11 @@ account; omit for the combined view), and optional `start_date` / `end_date` (IS
 ### Transactions — `/api/transactions`
 | Endpoint | Purpose |
 |---|---|
-| `GET ""` | Paginated list; filters: `mode`, `account_id`, `start_date`, `end_date`, `category_id`, `transaction_type`, `is_investment`, `search` (description contains), `page`, `page_size`; sort: `sort_by` (`date`\|`amount`), `sort_dir` (`asc`\|`desc`) |
-| `POST /reconcile-transfers` | (Re)detect transfers between your own accounts and flag both sides; returns the matched pairs (§4.1) |
+| `GET ""` | Paginated list; filters: `mode`, `account_id`, `start_date`, `end_date`, `category_id`, `kind` (`spend`\|`income`\|`investment`\|`transfer`\|`poker`), `transaction_type` (pattern-validated `debit`\|`credit`), `is_investment`, `investment_platform` (by platform label), `search` (description contains), `page`, `page_size`; sort: `sort_by` (`date`\|`amount`), `sort_dir` (`asc`\|`desc`). Response includes `total_amount` — the summed amount of **all** matching rows, not just the current page. Each row carries a nested `account` object. `kind` derives from the flags: `spend` = debits that aren't investments/transfers/card-payments, `income` = the credit equivalent, `investment` = `is_investment`, `transfer` = auto + manually-marked transfers (bucket ≠ poker), `poker` = `bucket="poker"` |
+| `POST /reconcile-transfers` | (Re)detect transfers between your own accounts and flag both sides; returns the matched pairs (§4.1). Skips rows with a `bucket` set, so manual marks survive |
 | `PATCH /{id}/category` | Re-assign a transaction's category |
 | `PATCH /{id}/investment?is_investment=` | Manually mark/unmark as investment (§4.2) |
+| `PATCH /{id}/transfer?is_transfer=` | Manually mark/unmark as a transfer — sets `is_internal_transfer` and `bucket="transfer"` (§4.1c) |
 | `DELETE /{id}` | Delete a transaction |
 
 ### Investments — `/api/investment-rules` · `/api/investments`
@@ -326,7 +363,8 @@ account; omit for the combined view), and optional `start_date` / `end_date` (IS
 |---|---|
 | `GET /investment-rules` · `POST` · `DELETE /{id}` | Manage payee keywords (+ optional display `label`, e.g. keyword `INGENICO` → label `Grip`); creating one re-tags matching bank transactions |
 | `POST /investment-rules/apply` | Re-apply all rules to existing bank transactions (flag ON only) |
-| `GET /investments/summary` | Total invested + count + by-platform breakdown (optional `account_id`, `start_date`, `end_date`) |
+| `GET /investments/summary` | Total + count + by-platform breakdown of `is_investment` rows for one `direction` (`debit` = invested, `credit` = returns; default `debit`); optional `account_id`, `start_date`, `end_date`. A platform label can span several keywords, so the breakdown is grouped by label |
+| `GET /investments/monthly` | Per-month invested-vs-returns for the comparison chart (`{month, invested, returns}`), plus the full `platforms` list for the picker chips; optional `platform` scopes to one label, plus `account_id`, `start_date`, `end_date` |
 
 ### Subscriptions — `/api/subscription-rules` · `/api/subscriptions`
 | Endpoint | Purpose |
@@ -373,11 +411,11 @@ Stack: **Python 3.9+**, **FastAPI**, **SQLAlchemy**, **SQLite**, **Pydantic**,
 File (CSV / XLS / XLSX / PDF)
    → Parser Registry   (bank CSV → card PDFs → generic PDF/XLSX → generic CSV)
    → RawTransaction[]  (source-specific fields, raw strings)
-   → Normalizer        (standard schema; sets is_internal_transfer / is_investment / is_card_payment)
+   → Normalizer        (standard schema; sets is_internal_transfer / is_investment / is_card_payment; tags poker rows bucket="poker")
    → Categorizer       (keyword match → category_id)
    → Dedup guard       (SHA-256 row hash UNIQUE, scoped per account; in-file repeats kept)
    → SQLite
-   → Reconcile         (re-pair cross-account bank transfers; §4.1)
+   → Reconcile         (re-pair cross-account bank transfers, skipping any bucket-tagged row; §4.1)
 ```
 Entry points: the file watcher and the upload API both funnel into the same
 pipeline. `run_ingestion(...)` and `normalize_and_insert(...)` accept an optional
@@ -411,7 +449,9 @@ listed in the normalizer's `_CARD_SOURCES` has its credits treated as card
 settlement, not income (§4.3). Password-protected statements (e.g. Axis) are
 decrypted with `pypdf` before parsing. The HDFC card parser strips a misleading
 leading `EMI ` label that HDFC prints on some full (non-installment) charges, so the
-description is the real merchant name.
+description is the real merchant name. HDFC "payment received" lines extract with a
+**blank description** — these now parse as a credit labelled `PAYMENT RECEIVED` (treated
+as a card payment and excluded) instead of defaulting to a debit/spend.
 
 ### Categorization engine
 `app/categorization/` — categories + keyword lists seeded from `rules.py` at
@@ -445,8 +485,9 @@ Tables are created with `Base.metadata.create_all` at startup, which builds *new
 tables but never ALTERs an existing one. `app/migrations.py::run_migrations(engine)`
 (called right after `create_all`) closes that gap for additive columns — it inspects
 each table and adds any missing column in place, so an already-populated SQLite DB
-upgrades without losing data. This is how the `transactions.account_id` column lands
-on existing databases. (Alembic is a dependency but is not currently wired up.)
+upgrades without losing data. This is how the `transactions.account_id` and the newer
+`transactions.bucket` (§4.4) columns land on existing databases. (Alembic is a
+dependency but is not currently wired up.)
 
 ---
 
@@ -467,6 +508,7 @@ on existing databases. (Alembic is a dependency but is not currently wired up.)
 | `is_internal_transfer` | top-up / self-transfer flag (§4.1) |
 | `is_investment` | investment-outflow flag (§4.2) |
 | `is_card_payment` | credit-card bill-settlement flag (debits only) |
+| `bucket` | nullable — `poker` / `transfer`; extra classification, re-import-proof (§4.4) |
 | `file_hash` / `row_hash` | dedup guards (SHA-256; `row_hash` includes `account_id`) |
 | `created_at` | timestamp |
 
@@ -533,12 +575,20 @@ cd ../backend && PORT=8001 python scripts/run.py
 When `frontend/dist/` exists, `main.py` mounts it: static assets under `/assets`,
 a catch-all serving `index.html` for SPA routes, and the API/`/docs` still under
 `/api` and `/docs`. Rebuild the frontend whenever its code changes. (This block is a
-no-op until you build, so the dev two-server flow is unaffected.)
+no-op until you build, so the dev two-server flow is unaffected.) The catch-all
+**contains the requested path inside `frontend/dist`** — a hardening fix, since a
+naive join let a crafted path escape the static root and serve arbitrary files
+(including the SQLite DB).
 
 **Changing the ports.** The backend port defaults to `8000` but honours a `PORT`
 env var (`PORT=8001 python scripts/run.py`). For the *dev* two-server flow, start
 Vite with a matching `VITE_API_PORT` (`VITE_API_PORT=8001 npm run dev`) so its
 `/api` proxy points at the backend. Useful when something else already owns `8000`.
+
+**Binding host.** The server binds `127.0.0.1` (localhost only) by **default** —
+it serves real financial data with no auth, so it shouldn't be exposed on the LAN.
+Override with the `HOST` env var (`HOST=0.0.0.0 …`) only when you deliberately want
+it reachable from other machines.
 
 ---
 
