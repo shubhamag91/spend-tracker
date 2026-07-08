@@ -42,6 +42,7 @@ export interface Transaction {
 export interface TransactionPage {
   items: Transaction[];
   total: number;
+  total_amount: number;
   page: number;
   page_size: number;
   total_pages: number;

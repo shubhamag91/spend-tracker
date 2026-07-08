@@ -41,6 +41,7 @@ class TransactionOut(BaseModel):
 class TransactionPage(BaseModel):
     items: List[TransactionOut]
     total: int
+    total_amount: float   # summed amount of ALL matching rows (not just this page)
     page: int
     page_size: int
     total_pages: int

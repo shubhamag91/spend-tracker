@@ -12,6 +12,7 @@ interface Props {
   transactions: Transaction[];
   isLoading: boolean;
   total: number;
+  totalAmount: number;
   page: number;
   totalPages: number;
   onPageChange: (page: number) => void;
@@ -77,7 +78,7 @@ function CategoryDropdown({ txnId, currentCategoryId }: { txnId: number; current
   );
 }
 
-export default function TransactionTable({ transactions, isLoading, total, page, totalPages, onPageChange, sortBy, sortDir, onSort }: Props) {
+export default function TransactionTable({ transactions, isLoading, total, totalAmount, page, totalPages, onPageChange, sortBy, sortDir, onSort }: Props) {
   const setInvestment = useSetInvestment();
 
   if (isLoading) {
@@ -91,7 +92,7 @@ export default function TransactionTable({ transactions, isLoading, total, page,
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
       <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-        <span className="text-sm text-slate-500">{total} transactions</span>
+        <span className="text-sm text-slate-500">{total} transactions · <span className="font-semibold text-slate-700">{formatCurrency(totalAmount)}</span></span>
         <div className="flex items-center gap-2">
           <button
             disabled={page <= 1}
@@ -119,7 +120,7 @@ export default function TransactionTable({ transactions, isLoading, total, page,
               <SortHeader label="Date" field="date" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
               <th className="px-4 py-3 text-left">Description</th>
               <th className="px-4 py-3 text-left">Category</th>
-              <th className="px-4 py-3 text-left">Source</th>
+              <th className="px-4 py-3 text-left">Account</th>
               <SortHeader label="Amount" field="amount" sortBy={sortBy} sortDir={sortDir} onSort={onSort} align="right" />
             </tr>
           </thead>
@@ -169,7 +170,13 @@ export default function TransactionTable({ transactions, isLoading, total, page,
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{txn.source}</span>
+                  {txn.account ? (
+                    <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                      <span>{txn.account.type === 'card' ? '💳' : '🏦'}</span>{txn.account.name}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-400" title={`Imported from ${txn.source}`}>—</span>
+                  )}
                 </td>
                 <td className={`px-4 py-3 text-right font-medium ${
                   txn.is_internal_transfer || txn.is_investment

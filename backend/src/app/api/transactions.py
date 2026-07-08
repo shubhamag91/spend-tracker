@@ -3,6 +3,7 @@ import math
 from datetime import date
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.transaction import Transaction
@@ -72,6 +73,7 @@ def list_transactions(
         q = q.filter(Transaction.description.ilike(f"%{search}%"))
 
     total = q.count()
+    total_amount = q.with_entities(func.coalesce(func.sum(Transaction.amount), 0.0)).scalar()
     sort_col = _SORTABLE[sort_by]
     primary = sort_col.asc() if sort_dir == "asc" else sort_col.desc()
     # id as a stable tiebreaker so equal values (esp. equal amounts) page deterministically
@@ -85,6 +87,7 @@ def list_transactions(
     return TransactionPage(
         items=items,
         total=total,
+        total_amount=round(float(total_amount), 2),
         page=page,
         page_size=page_size,
         total_pages=math.ceil(total / page_size) if total > 0 else 1,

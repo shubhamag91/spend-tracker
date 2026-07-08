@@ -92,6 +92,7 @@ export default function Transactions() {
         transactions={data?.items ?? []}
         isLoading={isLoading}
         total={data?.total ?? 0}
+        totalAmount={data?.total_amount ?? 0}
         page={data?.page ?? 1}
         totalPages={data?.total_pages ?? 1}
         onPageChange={setPage}
