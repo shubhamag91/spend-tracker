@@ -132,6 +132,19 @@ def set_investment(txn_id: int, is_investment: bool = Query(...), db: Session = 
     return txn
 
 
+@router.patch("/{txn_id}/transfer", response_model=TransactionOut)
+def set_transfer(txn_id: int, is_transfer: bool = Query(...), db: Session = Depends(get_db)):
+    """Manually mark/unmark a transaction as a transfer (money moved, not spent/earned —
+    e.g. a loan to a friend that gets repaid). Excludes it from Spend and Income."""
+    txn = db.query(Transaction).filter(Transaction.id == txn_id).first()
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    txn.is_internal_transfer = is_transfer
+    db.commit()
+    db.refresh(txn)
+    return txn
+
+
 @router.patch("/{txn_id}/category", response_model=TransactionOut)
 def update_category(txn_id: int, category_id: Optional[int] = None, db: Session = Depends(get_db)):
     txn = db.query(Transaction).filter(Transaction.id == txn_id).first()

@@ -52,3 +52,16 @@ export function useUpdateCategory() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
   });
 }
+
+// Mark/unmark a transaction as a transfer — excludes it from spend & income, so refetch both.
+export function useSetTransfer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ txnId, value }: { txnId: number; value: boolean }) =>
+      client.patch(`/transactions/${txnId}/transfer`, null, { params: { is_transfer: value } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['analytics'] });
+    },
+  });
+}

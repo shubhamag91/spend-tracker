@@ -148,6 +148,16 @@ def test_transactions_kind_filter(client):
     assert total("transfer") == 1       # only SELF XFER
     assert client.get("/api/transactions?mode=real&kind=bogus").status_code == 422
 
+    # mark a spend as a transfer -> leaves spend, appears under transfer, out of spend total
+    swiggy = client.get("/api/transactions?mode=real&kind=spend").json()["items"][0]
+    assert client.patch(f"/api/transactions/{swiggy['id']}/transfer?is_transfer=true").status_code == 200
+    assert total("spend") == 0
+    assert total("transfer") == 2
+    assert client.get("/api/analytics/summary?mode=real").json()["total_spend"] == 0.0
+    # unmark restores it
+    client.patch(f"/api/transactions/{swiggy['id']}/transfer?is_transfer=false")
+    assert total("spend") == 1
+
 
 def test_analytics_summary_top_category_respects_date_range(client, seed_transactions):
     """top_category must be date-scoped like the rest of the summary — a range with no

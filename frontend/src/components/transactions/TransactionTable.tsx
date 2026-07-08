@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Transaction } from '../../types';
 import type { SortField, SortDir } from '../../hooks/useTransactions';
 import { useCategories } from '../../hooks/useCategories';
-import { useUpdateCategory } from '../../hooks/useTransactions';
+import { useUpdateCategory, useSetTransfer } from '../../hooks/useTransactions';
 import { useSetInvestment } from '../../hooks/useInvestments';
 import { formatDate, formatCurrency } from '../../utils/formatters';
 import CategoryBadge from './CategoryBadge';
@@ -80,6 +80,7 @@ function CategoryDropdown({ txnId, currentCategoryId }: { txnId: number; current
 
 export default function TransactionTable({ transactions, isLoading, total, totalAmount, page, totalPages, onPageChange, sortBy, sortDir, onSort }: Props) {
   const setInvestment = useSetInvestment();
+  const setTransfer = useSetTransfer();
 
   if (isLoading) {
     return (
@@ -134,9 +135,9 @@ export default function TransactionTable({ transactions, isLoading, total, total
                     {txn.is_internal_transfer && (
                       <span
                         className="flex-shrink-0 text-[10px] font-semibold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full"
-                        title="Self transfer between your own accounts — excluded from income & spend totals"
+                        title="Transfer (own-account move or a loan/repayment) — excluded from spend & income"
                       >
-                        ↔ Internal
+                        ↔ Transfer
                       </span>
                     )}
                     {txn.is_investment && (
@@ -155,6 +156,16 @@ export default function TransactionTable({ transactions, isLoading, total, total
                         title={txn.is_investment ? 'Move back to spend' : 'Count this as an investment, not spend'}
                       >
                         {txn.is_investment ? 'unmark' : 'mark investment'}
+                      </button>
+                    )}
+                    {/* Mark/unmark transfer — money moved, not spent/earned (e.g. a loan to a friend, repaid) */}
+                    {!txn.is_investment && (
+                      <button
+                        onClick={() => setTransfer.mutate({ txnId: txn.id, value: !txn.is_internal_transfer })}
+                        className="flex-shrink-0 text-[10px] text-slate-400 hover:text-slate-600 hover:underline"
+                        title={txn.is_internal_transfer ? 'Count as spend/income again' : 'Money moved, not spent/earned — exclude from spend & income'}
+                      >
+                        {txn.is_internal_transfer ? 'unmark transfer' : 'mark transfer'}
                       </button>
                     )}
                   </div>
