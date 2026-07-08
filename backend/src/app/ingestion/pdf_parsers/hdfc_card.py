@@ -66,7 +66,15 @@ class HdfcCardParser(BaseParser):
             if amount == 0:
                 continue
             up = desc.upper()
-            ttype = "credit" if any(k in up for k in _CREDIT_KEYWORDS) else "debit"
+            if not desc:
+                # A real charge always carries a merchant name; a blank line is a
+                # payment received / statement adjustment (a credit to the card), not
+                # spend. Default it to a credit so it isn't miscounted as a purchase —
+                # the normalizer then flags any card-statement credit as a card payment.
+                ttype = "credit"
+                desc = "PAYMENT RECEIVED (blank in statement)"
+            else:
+                ttype = "credit" if any(k in up for k in _CREDIT_KEYWORDS) else "debit"
             rows.append(RawTransaction(
                 date=txn_date, amount=amount, transaction_type=ttype,
                 description=desc, source=self.SOURCE_NAME,
