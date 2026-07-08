@@ -88,6 +88,8 @@ Core ingestion, categorization, and visualization.
 - [x] **Security / audit fixes** — SPA catch-all now contains the requested path inside `frontend/dist` (was a path-traversal that could serve the DB); dev server binds `127.0.0.1` by default (`HOST` to override) since it serves real data with no auth; `/analytics/summary` `top_category` is now date-scoped (was all-time); `GET /transactions` `transaction_type` gets a pattern validator.
 - [x] **HDFC card blank-description fix** — HDFC "payment received" lines (no extractable text) now parse as a credit `PAYMENT RECEIVED` → treated as a card payment (excluded), instead of defaulting to a debit/spend.
 - [x] **Dark mode** — a dark theme via remapped Tailwind surface utilities (`frontend/src/index.css`).
+- [x] **Recurring cash expenses** — a `cash_expenses` model (cook, maid, driver…) that auto-generates a monthly debit on a synthetic "Cash" account (`sync_cash_expenses` on every startup, idempotent to today), so cash spends that never hit a statement flow into overall spend + the Fixed Spends page without manual entry. CRUD at `/cash-expenses` + a manager card on the Fixed Spends page.
+- [x] **Transactions description search** — a debounced search box that composes with the kind filter / date / account / sort.
 - [x] **Richer demo data** — synthetic data now spans spend / income / investments / returns so every page is populated.
 
 ---

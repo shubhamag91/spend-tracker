@@ -332,6 +332,18 @@ for a lump-sum prepaid where you know the monthly rate (e.g. a ₹20,007 mainten
 recharge that's really ₹5,200/month). Spans banks and cards. Everything stays counted as spend — a reporting overlay, not
 a reclassification. (API + table are named `subscription*` internally.)
 
+**Cash expenses.** A second manager on the same page handles recurring **cash**
+payments that never appear on a statement — a cook, maid, driver, gym… Unlike the
+rule-based items above (a *reporting overlay* on existing transactions), a cash
+expense is a **source of spend**: each active `cash_expenses` row auto-generates a
+real debit (on a synthetic **"Cash"** account, `source="cash_expense"`) for every
+period from its start up to today. `sync_cash_expenses` runs on **every startup**
+(and on create), idempotently filling any elapsed months — so next month's entry
+appears on its own, no manual work. These debits flow into **overall spend** and are
+surfaced as first-class Fixed-Spends items. `POST /cash-expenses` (name, amount,
+day-of-month, type) backfills immediately; `DELETE` removes the row **and its
+generated debits**.
+
 ---
 
 ## 6. API reference
@@ -379,7 +391,8 @@ account; omit for the combined view), and optional `start_date` / `end_date` (IS
 | Endpoint | Purpose |
 |---|---|
 | `GET /subscription-rules` · `POST` · `PATCH /{id}` · `DELETE /{id}` | Manage tracked items (name, keyword, type, frequency, optional `min_amount` + `monthly_amount` override) |
-| `GET /subscriptions/summary` | Detected items grouped by service + type, each normalised to a monthly cost; `monthly_total` headline (optional `account_id`) |
+| `GET /subscriptions/summary` | Detected items grouped by service + type, each normalised to a monthly cost; `monthly_total` headline (optional `account_id`). Also includes active **cash expenses** as first-class items |
+| `GET·POST /cash-expenses`, `DELETE /cash-expenses/{id}` | Recurring **cash** expenses (cook, maid…) that auto-generate a monthly debit on the "Cash" account (POST backfills to today; DELETE removes the row + its generated debits) |
 
 ### Categories — `/api/categories`
 `GET ""` · `POST ""` · `PATCH /{id}` · `DELETE /{id}`
@@ -527,6 +540,8 @@ Indexes: `(date, data_mode)`, `(category_id)`, `(account_id)`.
 **`categories`** — `id · name · color · keywords_json`
 **`investment_rules`** — `id · keyword (unique) · label · created_at` (user-defined investment payees, §4.2)
 **`subscription_rules`** — `id · name · keyword · type · frequency · min_amount · monthly_amount · created_at` (tracked fixed-spend items, §5.6; keyword is **not** unique — a merchant can host several bills split by `min_amount`)
+
+**`cash_expenses`** — `id · name · amount · day_of_month · frequency · type · active · start_date · created_at` (recurring cash spends, §5.6; each auto-generates a monthly debit on the "Cash" account via `sync_cash_expenses`)
 **`ingest_log`** — `id · filename · file_hash · parser_used · rows_parsed/inserted/skipped · status · error_message · ingested_at`
 
 ---
