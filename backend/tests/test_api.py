@@ -121,6 +121,34 @@ def test_analytics_summary_with_data(client, seed_transactions):
     assert data["transaction_count"] == 5
 
 
+def test_transactions_kind_filter(client):
+    """kind=spend/income/investment/transfer isolates each bucket from the full ledger."""
+    from datetime import date
+    from app.models.account import Account
+    db = TestingSession()
+    bank = Account(name="Bank", type="bank"); db.add(bank); db.commit(); db.refresh(bank)
+    db.add_all([
+        Transaction(date=date(2025, 5, 1), amount=900.0, transaction_type="debit", description="SWIGGY",
+                    source="t", data_mode="real", row_hash="k1", account_id=bank.id),
+        Transaction(date=date(2025, 5, 2), amount=50000.0, transaction_type="debit", description="LENDBOX",
+                    source="t", data_mode="real", row_hash="k2", account_id=bank.id, is_investment=True),
+        Transaction(date=date(2025, 5, 3), amount=120000.0, transaction_type="credit", description="SALARY",
+                    source="t", data_mode="real", row_hash="k3", account_id=bank.id),
+        Transaction(date=date(2025, 5, 4), amount=10000.0, transaction_type="debit", description="SELF XFER",
+                    source="t", data_mode="real", row_hash="k4", account_id=bank.id, is_internal_transfer=True),
+    ])
+    db.commit(); db.close()
+
+    def total(kind):
+        return client.get(f"/api/transactions?mode=real&kind={kind}").json()["total"]
+    assert client.get("/api/transactions?mode=real").json()["total"] == 4
+    assert total("spend") == 1          # only SWIGGY (debit, not investment/transfer)
+    assert total("income") == 1         # only SALARY
+    assert total("investment") == 1     # only LENDBOX
+    assert total("transfer") == 1       # only SELF XFER
+    assert client.get("/api/transactions?mode=real&kind=bogus").status_code == 422
+
+
 def test_analytics_summary_top_category_respects_date_range(client, seed_transactions):
     """top_category must be date-scoped like the rest of the summary — a range with no
     spend should report no top category, not the all-time one (regression)."""

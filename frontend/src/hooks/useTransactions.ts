@@ -13,6 +13,7 @@ interface TransactionFilter {
   category_id?: number;
   is_investment?: boolean;
   transaction_type?: 'debit' | 'credit';
+  kind?: 'spend' | 'income' | 'investment' | 'transfer';
   investment_platform?: string;   // filter by platform label (matches all its keywords)
   search?: string;
   sort_by?: SortField;
@@ -29,6 +30,7 @@ export function useTransactions(filter: TransactionFilter) {
   if (filter.category_id) params.category_id = filter.category_id;
   if (filter.is_investment != null) params.is_investment = filter.is_investment;
   if (filter.transaction_type) params.transaction_type = filter.transaction_type;
+  if (filter.kind) params.kind = filter.kind;
   if (filter.investment_platform) params.investment_platform = filter.investment_platform;
   if (filter.search) params.search = filter.search;
   if (filter.sort_by) params.sort_by = filter.sort_by;

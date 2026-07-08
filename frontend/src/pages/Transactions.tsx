@@ -13,6 +13,7 @@ export default function Transactions() {
   const accountId = useSelectedAccountId();
   const isDemoMode = useDemoModeStore((s) => s.isDemoMode);
   const [range, setRange] = useState<DateRange>(PRESETS[0]);
+  const [kind, setKind] = useState<'all' | 'spend' | 'income' | 'investment'>('all');
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<SortField>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -31,6 +32,7 @@ export default function Transactions() {
   const { data, isLoading } = useTransactions({
     mode,
     account_id: accountId,
+    kind: kind === 'all' ? undefined : kind,
     start_date: dateRange?.start,
     end_date: dateRange?.end,
     sort_by: sortBy,
@@ -70,6 +72,21 @@ export default function Transactions() {
       </div>
 
       <DateRangeFilter selected={range} onChange={handleRangeChange} dataBounds={dataBounds} />
+
+      {/* Kind filter — isolate spends / income / investments from the full ledger */}
+      <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 flex-wrap">
+        {([['all', 'All'], ['spend', 'Spends'], ['income', 'Income'], ['investment', 'Investments']] as const).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => { setKind(k); setPage(1); }}
+            className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              kind === k ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       <TransactionTable
         transactions={data?.items ?? []}

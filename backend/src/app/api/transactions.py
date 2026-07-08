@@ -27,6 +27,7 @@ def list_transactions(
     end_date: Optional[date] = None,
     category_id: Optional[int] = None,
     transaction_type: Optional[str] = Query(None, pattern="^(debit|credit)$"),
+    kind: Optional[str] = Query(None, pattern="^(spend|income|investment|transfer)$"),
     is_investment: Optional[bool] = None,
     investment_platform: Optional[str] = None,   # filter by platform label (matches any of its keywords)
     search: Optional[str] = None,
@@ -47,6 +48,16 @@ def list_transactions(
         q = q.filter(Transaction.category_id == category_id)
     if transaction_type:
         q = q.filter(Transaction.transaction_type == transaction_type)
+    if kind == "spend":       # real consumption: debits that aren't investments/transfers/card-bills
+        q = q.filter(Transaction.transaction_type == "debit", Transaction.is_investment == False,
+                     Transaction.is_internal_transfer == False, Transaction.is_card_payment == False)
+    elif kind == "income":    # real income: credits, same exclusions
+        q = q.filter(Transaction.transaction_type == "credit", Transaction.is_investment == False,
+                     Transaction.is_internal_transfer == False, Transaction.is_card_payment == False)
+    elif kind == "investment":
+        q = q.filter(Transaction.is_investment == True)
+    elif kind == "transfer":
+        q = q.filter(Transaction.is_internal_transfer == True)
     if is_investment is not None:
         q = q.filter(Transaction.is_investment == is_investment)
     if investment_platform:
