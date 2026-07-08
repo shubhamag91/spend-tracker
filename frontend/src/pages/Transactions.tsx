@@ -18,11 +18,18 @@ export default function Transactions() {
   const [sortBy, setSortBy] = useState<SortField>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [showUpload, setShowUpload] = useState(false);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const dateRange = range.start ? { start: range.start, end: range.end } : undefined;
 
   // Switching account can shrink the result set — go back to page 1.
   useEffect(() => { setPage(1); }, [accountId]);
+  // Debounce the search box so we don't refetch on every keystroke.
+  useEffect(() => {
+    const id = setTimeout(() => { setDebouncedSearch(search.trim()); setPage(1); }, 300);
+    return () => clearTimeout(id);
+  }, [search]);
 
   const allDays = useByDay(mode);
   const dataBounds = allDays.data?.length
@@ -33,6 +40,7 @@ export default function Transactions() {
     mode,
     account_id: accountId,
     kind: kind === 'all' ? undefined : kind,
+    search: debouncedSearch || undefined,
     start_date: dateRange?.start,
     end_date: dateRange?.end,
     sort_by: sortBy,
@@ -73,19 +81,33 @@ export default function Transactions() {
 
       <DateRangeFilter selected={range} onChange={handleRangeChange} dataBounds={dataBounds} />
 
-      {/* Kind filter — isolate spends / income / investments from the full ledger */}
-      <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 flex-wrap">
-        {([['all', 'All'], ['spend', 'Spends'], ['income', 'Income'], ['investment', 'Investments'], ['transfer', 'Transfers'], ['poker', 'Poker']] as const).map(([k, label]) => (
-          <button
-            key={k}
-            onClick={() => { setKind(k); setPage(1); }}
-            className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-              kind === k ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        {/* Kind filter — isolate spends / income / investments from the full ledger */}
+        <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 flex-wrap">
+          {([['all', 'All'], ['spend', 'Spends'], ['income', 'Income'], ['investment', 'Investments'], ['transfer', 'Transfers'], ['poker', 'Poker']] as const).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => { setKind(k); setPage(1); }}
+              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                kind === k ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Description search */}
+        <div className="relative w-full sm:w-72">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search description…"
+            className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300"
+          />
+        </div>
       </div>
 
       <TransactionTable
