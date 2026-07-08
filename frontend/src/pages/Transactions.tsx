@@ -13,7 +13,7 @@ export default function Transactions() {
   const accountId = useSelectedAccountId();
   const isDemoMode = useDemoModeStore((s) => s.isDemoMode);
   const [range, setRange] = useState<DateRange>(PRESETS[0]);
-  const [kind, setKind] = useState<'all' | 'spend' | 'income' | 'investment' | 'transfer'>('all');
+  const [kind, setKind] = useState<'all' | 'spend' | 'income' | 'investment' | 'transfer' | 'poker'>('all');
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<SortField>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -75,7 +75,7 @@ export default function Transactions() {
 
       {/* Kind filter — isolate spends / income / investments from the full ledger */}
       <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 flex-wrap">
-        {([['all', 'All'], ['spend', 'Spends'], ['income', 'Income'], ['investment', 'Investments'], ['transfer', 'Transfers']] as const).map(([k, label]) => (
+        {([['all', 'All'], ['spend', 'Spends'], ['income', 'Income'], ['investment', 'Investments'], ['transfer', 'Transfers'], ['poker', 'Poker']] as const).map(([k, label]) => (
           <button
             key={k}
             onClick={() => { setKind(k); setPage(1); }}

@@ -34,6 +34,7 @@ export interface Transaction {
   data_mode: 'real' | 'demo';
   is_internal_transfer: boolean;
   is_investment: boolean;
+  bucket: string | null;
   created_at: string;
   category: { id: number; name: string; color: string } | null;
   account: { id: number; name: string; type: 'bank' | 'card' } | null;

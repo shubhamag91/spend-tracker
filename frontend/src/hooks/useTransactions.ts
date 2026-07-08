@@ -13,7 +13,7 @@ interface TransactionFilter {
   category_id?: number;
   is_investment?: boolean;
   transaction_type?: 'debit' | 'credit';
-  kind?: 'spend' | 'income' | 'investment' | 'transfer';
+  kind?: 'spend' | 'income' | 'investment' | 'transfer' | 'poker';
   investment_platform?: string;   // filter by platform label (matches all its keywords)
   search?: string;
   sort_by?: SortField;

@@ -159,6 +159,31 @@ def test_transactions_kind_filter(client):
     assert total("spend") == 1
 
 
+def test_poker_bucket_excluded_and_reconcile_safe(client):
+    """A poker-bucketed row is excluded from spend, filterable via kind=poker, and —
+    crucially — reconcile (which runs on every import and resets transfer flags on
+    bank rows) must NOT wipe the manual bucket/flag."""
+    from datetime import date
+    from app.models.account import Account
+    from app.utils.interbank import reconcile_internal_transfers
+    db = TestingSession()
+    bank = Account(name="Bank", type="bank"); db.add(bank); db.commit(); db.refresh(bank)
+    db.add_all([
+        Transaction(date=date(2025, 5, 1), amount=900.0, transaction_type="debit", description="SWIGGY",
+                    source="t", data_mode="real", row_hash="p1", account_id=bank.id),
+        Transaction(date=date(2025, 5, 2), amount=60000.0, transaction_type="debit", description="UPI-KANSOUWA",
+                    source="t", data_mode="real", row_hash="p2", account_id=bank.id,
+                    is_internal_transfer=True, bucket="poker"),
+    ])
+    db.commit()
+    reconcile_internal_transfers(db, "real")   # must preserve the poker row's flag
+    db.close()
+
+    assert client.get("/api/transactions?mode=real&kind=poker").json()["total"] == 1
+    assert client.get("/api/transactions?mode=real&kind=spend").json()["total"] == 1   # SWIGGY only
+    assert client.get("/api/analytics/summary?mode=real").json()["total_spend"] == 900.0
+
+
 def test_analytics_summary_top_category_respects_date_range(client, seed_transactions):
     """top_category must be date-scoped like the rest of the summary — a range with no
     spend should report no top category, not the all-time one (regression)."""

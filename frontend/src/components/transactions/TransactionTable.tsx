@@ -132,7 +132,15 @@ export default function TransactionTable({ transactions, isLoading, total, total
                 <td className="px-4 py-3 text-slate-800 max-w-xs">
                   <div className="flex items-center gap-2">
                     <span className="truncate">{txn.description}</span>
-                    {txn.is_internal_transfer && (
+                    {txn.bucket === 'poker' && (
+                      <span
+                        className="flex-shrink-0 text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full"
+                        title="Poker settlement — excluded from spend & income"
+                      >
+                        🃏 Poker
+                      </span>
+                    )}
+                    {txn.is_internal_transfer && txn.bucket !== 'poker' && (
                       <span
                         className="flex-shrink-0 text-[10px] font-semibold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full"
                         title="Transfer (own-account move or a loan/repayment) — excluded from spend & income"
@@ -159,7 +167,7 @@ export default function TransactionTable({ transactions, isLoading, total, total
                       </button>
                     )}
                     {/* Mark/unmark transfer — money moved, not spent/earned (e.g. a loan to a friend, repaid) */}
-                    {!txn.is_investment && (
+                    {!txn.is_investment && txn.bucket !== 'poker' && (
                       <button
                         onClick={() => setTransfer.mutate({ txnId: txn.id, value: !txn.is_internal_transfer })}
                         className="flex-shrink-0 text-[10px] text-slate-400 hover:text-slate-600 hover:underline"

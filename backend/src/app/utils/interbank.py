@@ -47,14 +47,18 @@ def reconcile_internal_transfers(
         .filter(Transaction.data_mode == mode, Transaction.account_id.in_(bank_ids))
         .all()
     )
-    for t in txns:
+    # Manual overrides carry a `bucket` (poker, a marked transfer, …). Leave those
+    # alone — reconcile only manages auto-detected own-account pairs, so a re-import
+    # never clobbers something the user tagged by hand.
+    auto = [t for t in txns if t.bucket is None]
+    for t in auto:
         t.is_internal_transfer = False
 
     debits = sorted(
-        (t for t in txns if t.transaction_type == "debit"),
+        (t for t in auto if t.transaction_type == "debit"),
         key=lambda t: (t.date, t.id),
     )
-    credits = [t for t in txns if t.transaction_type == "credit"]
+    credits = [t for t in auto if t.transaction_type == "credit"]
     used: set[int] = set()
     pairs: list[TransferPair] = []
 

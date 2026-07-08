@@ -22,6 +22,9 @@ class Transaction(Base):
     is_internal_transfer: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_investment: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_card_payment: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # optional named bucket (e.g. "poker") — money that's neither spend nor income;
+    # bucketed rows also carry is_internal_transfer=True so every spend/income query excludes them.
+    bucket: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     file_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     row_hash: Mapped[Optional[str]] = mapped_column(String, nullable=True, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

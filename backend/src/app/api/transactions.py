@@ -3,7 +3,7 @@ import math
 from datetime import date
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.transaction import Transaction
@@ -28,7 +28,7 @@ def list_transactions(
     end_date: Optional[date] = None,
     category_id: Optional[int] = None,
     transaction_type: Optional[str] = Query(None, pattern="^(debit|credit)$"),
-    kind: Optional[str] = Query(None, pattern="^(spend|income|investment|transfer)$"),
+    kind: Optional[str] = Query(None, pattern="^(spend|income|investment|transfer|poker)$"),
     is_investment: Optional[bool] = None,
     investment_platform: Optional[str] = None,   # filter by platform label (matches any of its keywords)
     search: Optional[str] = None,
@@ -57,14 +57,16 @@ def list_transactions(
                      Transaction.is_internal_transfer == False, Transaction.is_card_payment == False)
     elif kind == "investment":
         q = q.filter(Transaction.is_investment == True)
-    elif kind == "transfer":
-        q = q.filter(Transaction.is_internal_transfer == True)
+    elif kind == "transfer":   # auto + manually-marked transfers, but not poker
+        q = q.filter(Transaction.is_internal_transfer == True,
+                     or_(Transaction.bucket.is_(None), Transaction.bucket == "transfer"))
+    elif kind == "poker":
+        q = q.filter(Transaction.bucket == "poker")
     if is_investment is not None:
         q = q.filter(Transaction.is_investment == is_investment)
     if investment_platform:
         # a platform label can span several keywords — match any of them so the list
         # agrees with the by-platform breakdown count (e.g. Grip = GRIPX + LoanX + …)
-        from sqlalchemy import or_
         from app.api.investments import platform_keywords
         kws = platform_keywords(db, investment_platform)
         needles = kws or [investment_platform]   # manually-tagged label has no keyword
@@ -140,6 +142,8 @@ def set_transfer(txn_id: int, is_transfer: bool = Query(...), db: Session = Depe
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
     txn.is_internal_transfer = is_transfer
+    # tag it as a manual override so reconcile (on the next import) won't reset it
+    txn.bucket = "transfer" if is_transfer else None
     db.commit()
     db.refresh(txn)
     return txn

@@ -31,6 +31,9 @@ class Settings(BaseSettings):
         "CRED CLUB", "CRED.CLUB", "CREDITCARD", "CREDIT CARD", "CARD PAYMENT",
         "CC PAYMENT", "AUTOPAY-CRED", "BILLDESK CRED",
     ]
+    # Poker settlements — money in/out of a private game, neither spend nor income.
+    # Tagged into the "poker" bucket (and excluded from spend/income).
+    poker_keywords: list[str] = ["KANSOUWA"]
 
     class Config:
         env_file = str(Path(__file__).parent.parent.parent / "config" / ".env")

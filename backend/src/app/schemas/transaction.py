@@ -31,6 +31,7 @@ class TransactionOut(BaseModel):
     is_internal_transfer: bool = False
     is_investment: bool = False
     is_card_payment: bool = False
+    bucket: Optional[str] = None
     created_at: datetime
     category: Optional[CategoryRef] = None
     account: Optional[AccountRef] = None

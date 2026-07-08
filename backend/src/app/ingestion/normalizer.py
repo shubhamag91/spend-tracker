@@ -6,6 +6,7 @@ from app.utils.dedup import row_hash as compute_row_hash
 from app.utils.transfers import is_internal_transfer
 from app.utils.investments import is_investment, investment_keywords
 from app.utils.card_payments import is_card_payment
+from app.config import settings
 
 # Parser SOURCE_NAMEs that come from a credit-card statement (not a bank account).
 _CARD_SOURCES = {"hdfc_card", "sbi_card", "axis_card", "amex_card"}
@@ -42,6 +43,11 @@ def normalize_and_insert(
 
         category_id = categorize(raw.description, db)
         internal = is_internal_transfer(raw.description)
+        # Poker settlements are neither spend nor income — bucket them and exclude
+        # from every spend/income total via the internal-transfer flag.
+        bucket = "poker" if any(k in raw.description.upper() for k in settings.poker_keywords) else None
+        if bucket:
+            internal = True
         # investments flow both ways: SIP purchases (debit) and redemptions (credit)
         investment = is_investment(raw.description, inv_keywords)
         # Card-bill settlements aren't consumption or income. Two cases:
@@ -67,6 +73,7 @@ def normalize_and_insert(
             is_internal_transfer=internal,
             is_investment=investment,
             is_card_payment=card_payment,
+            bucket=bucket,
             file_hash=file_hash,
             row_hash=rh,
         )
