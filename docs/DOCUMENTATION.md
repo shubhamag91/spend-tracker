@@ -16,7 +16,7 @@ API, backend internals, and how each number is computed.
 
 ## Table of contents
 1. [Overview](#1-overview)
-2. [The Wallet model](#2-the-wallet-model-core-concept)
+2. [Core concept — spend vs. everything else](#2-core-concept--spend-vs-everything-else)
 3. [Architecture](#3-architecture)
 4. [Smart classification (flags)](#4-smart-classification-the-flags)
 5. [The screens](#5-the-screens)
@@ -63,39 +63,46 @@ the entire model (see §2).
 
 ---
 
-## 2. The Wallet model (core concept)
+## 2. Core concept — spend vs. everything else
 
-> **Most finance apps assume:** Income → Spend → Savings.
-> **This account works differently:** money is *loaded* in, some is *invested*, the rest is *spent*.
+The app answers *"what did I actually spend?"* — which means pulling everything that
+**isn't** consumption out of the total. Every **debit** lands in exactly one bucket:
 
 ```
-            ┌─────────────────────────────────────────┐
-            │              MONEY LOADED                │
-            │  (top-ups from salary a/c + any credits) │
-            └───────────────────┬─────────────────────┘
-          ┌─────────────────────┼─────────────────────┐
-          ▼                     ▼                     ▼
-   ┌────────────┐        ┌────────────┐        ┌────────────┐
-   │ INVESTED   │        │   SPENT    │        │  UNSPENT   │
-   │ Grip, SIPs │        │ real       │        │ sitting in │
-   │ Groww, MF  │        │ consumption│        │ the wallet │
-   └────────────┘        └────────────┘        └────────────┘
+   ┌─────────────────────────────────────────────────────────┐
+   │                         DEBITS                           │
+   └──┬──────────┬───────────┬──────────────┬────────────────┬┘
+      ▼          ▼           ▼              ▼                ▼
+ ┌────────┐ ┌─────────┐ ┌──────────┐ ┌──────────────┐ ┌────────┐
+ │ SPEND  │ │ INVESTED│ │ TRANSFER │ │ CARD PAYMENT │ │ POKER  │
+ │ real   │ │ Grip,MF │ │ own-acct │ │ bank→card    │ │ private│
+ │ consum.│ │ SIP,P2P │ │ + washes │ │ bill settle  │ │ game   │
+ └────────┘ └─────────┘ └──────────┘ └──────────────┘ └────────┘
+   spend      Invest-      excluded       excluded        excluded
+   total       ments
 ```
 
-| Term | Definition |
-|---|---|
-| **Loaded** | All credits into the account (top-ups + salary + returns + refunds) |
-| **Top-ups** | Of loaded: self-transfers from your own salary account (`IMPS-…-<yourname>`) |
-| **Invested** | Debits to broking / MF / SIP platforms (Grip, Zerodha, Groww, INDSTOCKS…) |
-| **Spent** | Debits that are **not** investments — your actual consumption |
-| **Unspent** | `Loaded − Invested − Spent` — money still in the wallet |
+| Bucket | What it is | Where it shows |
+|---|---|---|
+| **Spend** | Real consumption — a debit that's none of the below | Spends page, *You spent ₹X* |
+| **Invested** | Broking / MF / SIP / P2P outflows (Grip, Zerodha, Groww, INDSTOCKS…) | Investments page (invested vs. returns) |
+| **Transfer** | Own-account moves + manually-marked washes (a repaid loan to a friend) | Transactions → Transfers |
+| **Card payment** | Bank→card bill settlement — the swipes are the real spend, counted once | excluded |
+| **Poker** | Private-game settlements (`config.poker_keywords`) | Transactions → Poker |
 
-**Why it matters:** counting an ₹84k transfer to Grip as "spend," or a ₹1.95L
-salary top-up as "income," makes the dashboard lie. The wallet model keeps each
-rupee in the right bucket so "spent" means *actually consumed*.
+**Credits** split the same way — real **income** vs. investment **returns**
+(`is_investment` credits), transfers, and card-side settlements — so income isn't
+inflated by a redemption or a repaid loan.
 
-Concepts deliberately **absent** because they don't apply to this account type:
-savings rate, income stability, income diversification, monthly budgets.
+**Why it matters:** counting an ₹84k transfer to Grip as "spend," or a repaid ₹2.25L
+friend-loan as "income," makes the dashboard lie. Each rupee sits in the right bucket
+so "spent" means *actually consumed*.
+
+> **Legacy wallet view.** The tracked account is a *spending wallet* — a secondary
+> account topped up from a salary account — and an earlier hero framed it as
+> *loaded → invested → spent → unspent* (`Unspent = Loaded − Invested − Spent`, still at
+> `/analytics/wallet`). That view was removed when the app was slimmed to Spends +
+> Investments; the classification above is the same logic.
 
 ---
 

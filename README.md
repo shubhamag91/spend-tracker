@@ -1,11 +1,12 @@
 # Spend Tracker
 
-A full-stack personal finance dashboard that auto-ingests bank-statement exports
-(CSV / PDF / XLS / XLSX), classifies every transaction, and visualizes your
-spending across day, week, month, and year views. Built around a **wallet model**
-— *loaded → invested → spent → unspent* — rather than the usual income/savings
-framing, so "spent" means money you actually consumed. Includes a **demo mode**
-toggle for sharing without exposing real finances.
+A full-stack personal finance dashboard that auto-ingests bank- and
+credit-card-statement exports (CSV / PDF / XLS / XLSX), classifies every
+transaction, and tracks your **spends and investments** separately. Smart
+classification keeps investments, transfers, card-bill payments, and other
+non-consumption out of the spend total, so "spent" means money you actually
+consumed — and investments get their own page (invested vs. returns). Includes a
+**demo mode** toggle for sharing without exposing real finances.
 
 > 📖 **Full documentation:** [docs/DOCUMENTATION.md](docs/DOCUMENTATION.md) is the
 > single canonical reference — the mental model, every screen, the complete API,
@@ -53,21 +54,21 @@ toggle for sharing without exposing real finances.
 - **Demo mode**: Toggle between your real data and synthetic demo data — perfect for resume/portfolio sharing. Demo spans ~13 months of spend, income, investments and returns, so every page (Spends, Transactions, Investments) is populated
 - **Deduplication**: Re-importing the same file is safe — file-level and row-level SHA-256 guards prevent duplicates
 
-## The wallet model
+## What counts as "spend"
 
-This dashboard tracks a **spending wallet** — a secondary account topped up from a
-salary account and used for day-to-day spends and investments. Money is *loaded*
-in, some is *invested*, the rest is *spent*:
+The app separates what you actually *consumed* from everything else. A debit is
+**spend** only if it isn't one of these:
 
-| Term | Meaning |
+| Bucket | What it is |
 |---|---|
-| **Loaded** | All credits into the account (top-ups, returns, refunds) |
-| **Invested** | Debits to broking / MF / SIP platforms |
-| **Spent** | Debits that are *not* investments — actual consumption |
-| **Unspent** | `Loaded − Invested − Spent` — still in the wallet |
+| **Investments** | Money moved to broking / MF / SIP / P2P platforms — tracked on the Investments page (invested vs. returns), not spend |
+| **Transfers** | Own-account moves + manually-marked washes (e.g. a loan to a friend that's repaid) |
+| **Card payments** | Bank→card bill settlements — the real spend is the itemised card charges, counted once |
+| **Poker** | Private-game settlements — neither spend nor income |
 
-Every spend analytic excludes internal transfers and investments, so totals
-reflect real consumption. See [§2 of the docs](docs/DOCUMENTATION.md#2-the-wallet-model-core-concept).
+So the headline *You spent ₹X* reflects real consumption. (A legacy wallet view —
+*loaded → invested → spent → unspent* — still exists at `/analytics/wallet` but isn't
+shown in the slimmed-down UI.) See [§2 of the docs](docs/DOCUMENTATION.md#2-core-concept--spend-vs-everything-else).
 
 ## Setup
 
