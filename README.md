@@ -41,7 +41,7 @@ consumed — and investments get their own page (invested vs. returns). Includes
 - **Manual upload**: Drag-and-drop upload from the dashboard UI
 - **Multi-bank support**: HDFC, ICICI, and a generic CSV fallback via a registry pattern; PDF (pdfplumber) and Excel (openpyxl/xlrd) parsers
 - **Credit-card statements**: Dedicated PDF parsers for HDFC, SBI, Axis, and American Express cards (password-protected statements decrypted via pypdf); card charges become per-merchant spend, card payments/cashback stay out of income
-- **Smart classification**: Auto-detects internal transfers (self top-ups) and investments (Grip, Zerodha, Groww, SIPs…) and keeps them out of "spend"; a `bucket` column further separates **poker** settlements (config keyword, e.g. `KANSOUWA`) and **manually-marked transfers** (a wash like a loan to a friend that gets repaid), both excluded from spend & income
+- **Smart classification**: Auto-detects internal transfers (self top-ups) and investments (Grip, Zerodha, Groww, SIPs…) and keeps them out of "spend"; a `bucket` column further separates **poker** settlements (counterparty names in `POKER_KEYWORDS`, kept in `.env`) and **manually-marked transfers** (a wash like a loan to a friend that gets repaid), both excluded from spend & income
 - **Cross-account transfer detection**: Moves between two of your own accounts are matched (debit↔credit) and excluded from spend & income
 - **Per-account view**: Tag each statement to its account on upload; an account selector scopes the whole dashboard to one bank/card or shows them combined
 - **Account freshness**: A card on the Spends page shows each account's *data-through* date with a colour-coded staleness dot, so you know which statement to import next
@@ -131,6 +131,7 @@ Taking this over? After the setup above:
    ```
    - `ACCOUNT_HOLDER_NAMES` — your name(s) **exactly as they appear in your bank statements**. This drives self-transfer (top-up) detection; without it, your own top-ups get miscounted as income/spend.
    - `INVESTMENT_KEYWORDS` / `CARD_PAYMENT_KEYWORDS` — tune to the platforms you use (defaults live in [config.py](backend/src/app/config.py)).
+   - `POKER_KEYWORDS` — counterparty names for private-game settlements (JSON list). Kept in `.env` (not the repo) since they're personal; matched rows land in the "poker" bucket, out of spend & income.
 
 3. **Import your real data** — drop a CSV / PDF / XLS / XLSX statement into `backend/data/watched_folder/` (auto-ingests) or use the upload button in the UI. Re-importing is safe; duplicates are skipped.
 

@@ -88,7 +88,7 @@ The app answers *"what did I actually spend?"* — which means pulling everythin
 | **Invested** | Broking / MF / SIP / P2P outflows (Grip, Zerodha, Groww, INDSTOCKS…) | Investments page (invested vs. returns) |
 | **Transfer** | Own-account moves + manually-marked washes (a repaid loan to a friend) | Transactions → Transfers |
 | **Card payment** | Bank→card bill settlement — the swipes are the real spend, counted once | excluded |
-| **Poker** | Private-game settlements (`config.poker_keywords`) | Transactions → Poker |
+| **Poker** | Private-game settlements (names in `POKER_KEYWORDS`, set in `.env`) | Transactions → Poker |
 
 **Credits** split the same way — real **income** vs. investment **returns**
 (`is_investment` credits), transfers, and card-side settlements — so income isn't
@@ -221,9 +221,11 @@ A nullable **`bucket`** column carries classification that isn't captured by the
 boolean flags (values so far: `"poker"`, `"transfer"`). Both are excluded from spend
 and income, and both are addressable via the `kind` filter on `GET /transactions`.
 
-- **Poker** — the import normalizer tags any row matching `config.poker_keywords`
-  (currently `["KANSOUWA"]`) with `bucket="poker"` **and** `is_internal_transfer=True`,
+- **Poker** — the import normalizer tags any row whose description matches a name in
+  `settings.poker_keywords` with `bucket="poker"` **and** `is_internal_transfer=True`,
   so poker settlements don't distort spend or income and are filterable via `kind=poker`.
+  Counterparty names are personal, so they live in `config/.env` as `POKER_KEYWORDS`
+  (gitignored, empty default in `config.py`) — not in the repo.
 - **Transfer** — a manual mark (§4.1c) sets `bucket="transfer"`.
 
 Because `reconcile_internal_transfers` skips any row with a `bucket` set, these tags are
@@ -268,13 +270,13 @@ removed from this page; the underlying `/analytics/*` endpoints still exist.)
 ### 5.2 Transactions (`/transactions`)
 The source of truth — filterable, sortable, paginated table of every transaction.
 - **Kind filter** — segmented tabs **All · Spends · Income · Investments · Transfers · Poker** (backed by `GET /transactions?kind=…`, §6).
-- Filter by date range, category, type (debit/credit).
+- **Search** — a debounced description search box (`search` param, matches anywhere in the description); composes with the kind filter, date range, account, and sort.
+- Filter by date range and type (debit/credit).
 - **Sort** by clicking the Date or Amount column header (toggles asc/desc).
 - **Running total** — the list header shows the summed amount of all matching rows (`total_amount` on the response).
 - **Account column** — the row's actual bank/card account name with a 🏦/💳 icon (replaces the old import-file "Source" column).
 - **Type column** — a colored tag per row (Spend / Income / Investment / Transfer / Poker / Card payment) derived from the row's flags. This replaces the old per-row category badge + "Change" dropdown; categorization still runs in the backend, it's just no longer surfaced per-row here.
 - **Mark / unmark transfer** — a per-row action (`PATCH /transactions/{id}/transfer`, §4.1c) for washes auto-detection misses.
-- Internal transfers (including matched inter-account transfers) badged `↔ Internal` with a muted amount.
 
 ### 5.3 Income (`/income`)
 > ℹ️ **Hidden from the nav** — the route and its endpoints still exist and the page is
