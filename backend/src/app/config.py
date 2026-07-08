@@ -31,9 +31,11 @@ class Settings(BaseSettings):
         "CRED CLUB", "CRED.CLUB", "CREDITCARD", "CREDIT CARD", "CARD PAYMENT",
         "CC PAYMENT", "AUTOPAY-CRED", "BILLDESK CRED",
     ]
-    # Poker settlements — money in/out of a private game, neither spend nor income.
-    # Tagged into the "poker" bucket (and excluded from spend/income).
-    poker_keywords: list[str] = ["KANSOUWA"]
+    # Poker settlements — money in/out of a private game, neither spend nor income
+    # (tagged into the "poker" bucket, excluded from spend/income). Counterparty names
+    # are personal, so they live in config/.env (gitignored), NOT here — set
+    # POKER_KEYWORDS='["NAME ONE","NAME TWO"]'. See config/.env.example.
+    poker_keywords: list[str] = []
 
     class Config:
         env_file = str(Path(__file__).parent.parent.parent / "config" / ".env")
