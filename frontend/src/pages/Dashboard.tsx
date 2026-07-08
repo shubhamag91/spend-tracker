@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMode } from '../store/demoMode';
-import { useSummary, useByCategory, useByMonth, useByDay } from '../hooks/useAnalytics';
+import { useSummary, useByMonth, useByDay } from '../hooks/useAnalytics';
 import { useTransactions } from '../hooks/useTransactions';
 import { useSelectedAccountId } from '../store/selectedAccount';
 import DateRangeFilter, { type DateRange, PRESETS } from '../components/dashboard/DateRangeFilter';
@@ -38,7 +38,6 @@ export default function Dashboard() {
   const dateRange = range.start ? { start: range.start, end: range.end } : undefined;
 
   const summary = useSummary(mode, dateRange);
-  const byCategory = useByCategory(mode, dateRange);
   const byMonth = useByMonth(mode, dateRange);
   const allDays = useByDay(mode);
   // recent spend only — debits that aren't investments (transfers/card-bills are rare here)
@@ -53,7 +52,6 @@ export default function Dashboard() {
     : undefined;
 
   const s = summary.data;
-  const cats = (byCategory.data ?? []).slice(0, 8);
   const trend = byMonth.data ?? [];
   const empty = !summary.isLoading && (s?.transaction_count ?? 0) === 0;
 
@@ -93,45 +91,22 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* By category + Monthly trend */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <div className="bg-white rounded-2xl border border-slate-100 p-5">
-              <h2 className="font-semibold text-slate-800 mb-3">By category</h2>
-              {cats.length === 0 ? (
-                <p className="text-sm text-slate-400">No data</p>
-              ) : (
-                <div className="space-y-2.5">
-                  {cats.map((c) => (
-                    <div key={c.category}>
-                      <div className="flex items-center justify-between text-sm mb-1">
-                        <span className="text-slate-700 font-medium truncate">{c.category}</span>
-                        <span className="text-slate-500 whitespace-nowrap">{formatCurrency(c.total)} <span className="text-slate-400 text-xs">· {Math.round(c.percentage)}%</span></span>
-                      </div>
-                      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${Math.max(2, c.percentage)}%`, background: c.color }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-100 p-5">
-              <h2 className="font-semibold text-slate-800 mb-3">Monthly trend</h2>
-              {trend.length === 0 ? (
-                <p className="text-sm text-slate-400">No data</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={236}>
-                  <BarChart data={trend} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e2940" vertical={false} />
-                    <XAxis dataKey="label" tickFormatter={formatMonthLabel} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                    <YAxis tickFormatter={compactInr} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={52} />
-                    <Tooltip content={<TrendTooltip />} cursor={{ fill: '#1e2940' }} />
-                    <Bar dataKey="total" fill="#6d6af0" radius={[3, 3, 0, 0]} maxBarSize={48} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
+          {/* Monthly trend */}
+          <div className="bg-white rounded-2xl border border-slate-100 p-5">
+            <h2 className="font-semibold text-slate-800 mb-3">Monthly trend</h2>
+            {trend.length === 0 ? (
+              <p className="text-sm text-slate-400">No data</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={trend} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e2940" vertical={false} />
+                  <XAxis dataKey="label" tickFormatter={formatMonthLabel} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  <YAxis tickFormatter={compactInr} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={52} />
+                  <Tooltip content={<TrendTooltip />} cursor={{ fill: '#1e2940' }} />
+                  <Bar dataKey="total" fill="#6d6af0" radius={[3, 3, 0, 0]} maxBarSize={56} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
           {/* Recent transactions */}
