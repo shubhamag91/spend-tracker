@@ -207,6 +207,26 @@ def test_cash_expense_generates_recurring_spend(client):
     assert not [t for t in after["items"] if t["description"] == "House Cook"]
 
 
+def test_subscriptions_monthly(client):
+    """The month-by-month fixed-spend endpoint buckets matched charges by month/type."""
+    from datetime import date
+    assert client.post("/api/subscription-rules",
+                       json={"name": "Rent", "keyword": "LANDLORD", "type": "Rent", "frequency": "monthly"}).status_code == 201
+    db = TestingSession()
+    db.add_all([
+        Transaction(date=date(2025, 5, 5), amount=40000.0, transaction_type="debit", description="RENT LANDLORD",
+                    source="t", data_mode="real", row_hash="fm1"),
+        Transaction(date=date(2025, 6, 5), amount=41000.0, transaction_type="debit", description="RENT LANDLORD",
+                    source="t", data_mode="real", row_hash="fm2"),
+        Transaction(date=date(2025, 6, 6), amount=999.0, transaction_type="debit", description="SWIGGY",
+                    source="t", data_mode="real", row_hash="fm3"),   # not fixed → excluded
+    ])
+    db.commit(); db.close()
+    by = {x["month"]: x for x in client.get("/api/subscriptions/monthly?mode=real").json()}
+    assert by["2025-05"]["total"] == 40000.0 and by["2025-05"]["by_type"]["Rent"] == 40000.0
+    assert by["2025-06"]["total"] == 41000.0   # the ₹999 Swiggy is not a fixed spend
+
+
 def test_analytics_summary_top_category_respects_date_range(client, seed_transactions):
     """top_category must be date-scoped like the rest of the summary — a range with no
     spend should report no top category, not the all-time one (regression)."""

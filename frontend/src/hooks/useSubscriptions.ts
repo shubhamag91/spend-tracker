@@ -15,6 +15,25 @@ export function useSubscriptionSummary(mode: string) {
   });
 }
 
+export interface FixedMonthPoint {
+  month: string;
+  label: string;
+  total: number;
+  by_type: Record<string, number>;
+}
+
+export function useSubscriptionMonthly(mode: string) {
+  const accountId = useSelectedAccountId();
+  return useQuery<FixedMonthPoint[]>({
+    queryKey: ['subscriptions', 'monthly', mode, accountId],
+    queryFn: () => {
+      const params: Record<string, string | number> = { mode };
+      if (accountId != null) params.account_id = accountId;
+      return client.get('/subscriptions/monthly', { params }).then((r) => r.data);
+    },
+  });
+}
+
 export function useSubscriptionRules() {
   return useQuery<SubscriptionRule[]>({
     queryKey: ['subscription-rules'],

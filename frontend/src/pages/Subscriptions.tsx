@@ -1,12 +1,39 @@
 import { useState } from 'react';
 import { useMode } from '../store/demoMode';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import {
-  useSubscriptionSummary, useSubscriptionRules,
+  useSubscriptionSummary, useSubscriptionMonthly, useSubscriptionRules,
   useCreateSubscriptionRule, useUpdateSubscriptionRule, useDeleteSubscriptionRule,
 } from '../hooks/useSubscriptions';
 import { useCashExpenses, useCreateCashExpense, useDeleteCashExpense } from '../hooks/useCashExpenses';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
+
+function compactInr(v: number) {
+  if (!Number.isFinite(v)) return '₹0';
+  const a = Math.abs(v);
+  if (a >= 1e7) return `₹${(a / 1e7).toFixed(1)}Cr`;
+  if (a >= 1e5) return `₹${(a / 1e5).toFixed(1)}L`;
+  if (a >= 1e3) return `₹${Math.round(a / 1e3)}k`;
+  return `₹${Math.round(a)}`;
+}
+
+const FixedTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  const p = payload[0].payload;
+  const types = Object.entries(p.by_type || {}).filter(([, v]) => (v as number) > 0);
+  return (
+    <div className="bg-white border border-slate-100 rounded-xl px-4 py-3 shadow-lg text-sm">
+      <p className="font-semibold text-slate-700 mb-1.5">{label} · {formatCurrency(p.total)}</p>
+      {types.map(([t, v]) => (
+        <div key={t} className="flex items-center justify-between gap-6 text-xs">
+          <span className="text-slate-500">{t}</span>
+          <span className="font-medium text-slate-700">{formatCurrency(v as number)}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const TYPE_COLORS: Record<string, string> = {
   Rent: 'bg-purple-100 text-purple-700',
@@ -35,6 +62,7 @@ function typeClass(t: string) { return TYPE_COLORS[t] ?? TYPE_COLORS.Other; }
 export default function Subscriptions() {
   const mode = useMode();
   const { data: summary, isLoading } = useSubscriptionSummary(mode);
+  const { data: monthly } = useSubscriptionMonthly(mode);
   const { data: rules } = useSubscriptionRules();
   const createRule = useCreateSubscriptionRule();
   const updateRule = useUpdateSubscriptionRule();
@@ -103,6 +131,24 @@ export default function Subscriptions() {
           </div>
         </div>
       </div>
+
+      {/* Month by month — the ACTUAL fixed spend paid each month (it varies) */}
+      {monthly && monthly.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h2 className="font-semibold text-slate-800 mb-3">Month by month
+            <span className="text-xs font-normal text-slate-400"> · actual fixed spend paid (hover for the breakdown)</span>
+          </h2>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={monthly} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e2940" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={compactInr} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={52} />
+              <Tooltip content={<FixedTooltip />} cursor={{ fill: '#1e2940' }} />
+              <Bar dataKey="total" fill="#6d6af0" radius={[3, 3, 0, 0]} maxBarSize={56} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Left: detected items */}

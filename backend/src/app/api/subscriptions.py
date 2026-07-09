@@ -1,5 +1,6 @@
 from __future__ import annotations
 import collections
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -185,3 +186,55 @@ def subscriptions_summary(
         by_type=by_type,
         items=items,
     )
+
+
+@router.get("/subscriptions/monthly")
+def subscriptions_monthly(
+    mode: str = Query("real", pattern="^(real|demo)$"),
+    account_id: int | None = None,
+    db: Session = Depends(get_db),
+):
+    """Actual fixed-spend paid each month — the real transactions matching a
+    subscription rule or a cash expense, bucketed by month. Unlike the summary
+    (a single normalised figure) this shows the real month-to-month variation."""
+    from app.models.cash_expense import CashExpense
+    from app.utils.cash_expenses import CASH_SOURCE
+
+    rules = sorted(db.query(SubscriptionRule).all(),
+                   key=lambda r: (r.min_amount is not None, r.min_amount or 0), reverse=True)
+    cash_type = {e.name: e.type for e in db.query(CashExpense).filter(CashExpense.active == True).all()}  # noqa: E712
+
+    base = [
+        Transaction.data_mode == mode, Transaction.transaction_type == "debit",
+        Transaction.is_internal_transfer == False, Transaction.is_investment == False,
+        Transaction.is_card_payment == False,
+    ]
+    if account_id is not None:
+        base.append(Transaction.account_id == account_id)
+    txns = db.query(Transaction).filter(*base).all()
+
+    monthly: dict[str, dict[str, float]] = collections.defaultdict(lambda: collections.defaultdict(float))
+    for t in txns:
+        up = (t.description or "").upper()
+        ftype = None
+        for rule in rules:
+            if rule.keyword in up and (rule.min_amount is None or t.amount >= rule.min_amount):
+                ftype = rule.type
+                break
+        if ftype is None and t.source == CASH_SOURCE and (t.description or "") in cash_type:
+            ftype = cash_type[t.description]
+        if ftype is None:
+            continue
+        monthly[t.date.strftime("%Y-%m")][ftype] += t.amount
+
+    out = []
+    for ym in sorted(monthly):
+        y, m = ym.split("-")
+        by_type = {k: round(v, 2) for k, v in sorted(monthly[ym].items(), key=lambda kv: -kv[1])}
+        out.append({
+            "month": ym,
+            "label": date(int(y), int(m), 1).strftime("%b %y"),
+            "total": round(sum(by_type.values()), 2),
+            "by_type": by_type,
+        })
+    return out
