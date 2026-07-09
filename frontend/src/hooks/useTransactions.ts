@@ -65,3 +65,17 @@ export function useSetTransfer() {
     },
   });
 }
+
+// Mark/unmark a one-off transaction as poker — for a counterparty not worth
+// adding to POKER_KEYWORDS. Excludes it from spend & income, so refetch both.
+export function useSetPoker() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ txnId, value }: { txnId: number; value: boolean }) =>
+      client.patch(`/transactions/${txnId}/poker`, null, { params: { is_poker: value } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['analytics'] });
+    },
+  });
+}

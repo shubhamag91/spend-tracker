@@ -1,6 +1,6 @@
 import type { Transaction } from '../../types';
 import type { SortField, SortDir } from '../../hooks/useTransactions';
-import { useSetTransfer } from '../../hooks/useTransactions';
+import { useSetTransfer, useSetPoker } from '../../hooks/useTransactions';
 import { useSetInvestment } from '../../hooks/useInvestments';
 import { formatDate, formatCurrency } from '../../utils/formatters';
 import LoadingSpinner from '../shared/LoadingSpinner';
@@ -52,6 +52,7 @@ function txnKind(t: Transaction): { label: string; cls: string } {
 export default function TransactionTable({ transactions, isLoading, total, totalAmount, page, totalPages, onPageChange, sortBy, sortDir, onSort }: Props) {
   const setInvestment = useSetInvestment();
   const setTransfer = useSetTransfer();
+  const setPoker = useSetPoker();
 
   if (isLoading) {
     return (
@@ -121,6 +122,16 @@ export default function TransactionTable({ transactions, isLoading, total, total
                         title={txn.is_internal_transfer ? 'Count as spend/income again' : 'Money moved, not spent/earned — exclude from spend & income'}
                       >
                         {txn.is_internal_transfer ? 'unmark transfer' : 'mark transfer'}
+                      </button>
+                    )}
+                    {/* Mark/unmark poker — a one-off private-game settlement not worth a POKER_KEYWORDS rule */}
+                    {!txn.is_investment && txn.bucket !== 'transfer' && (
+                      <button
+                        onClick={() => setPoker.mutate({ txnId: txn.id, value: txn.bucket !== 'poker' })}
+                        className="flex-shrink-0 text-[10px] text-slate-400 hover:text-purple-600 hover:underline"
+                        title={txn.bucket === 'poker' ? 'Count as spend/income again' : 'A one-off poker settlement — exclude from spend & income'}
+                      >
+                        {txn.bucket === 'poker' ? 'unmark poker' : 'mark poker'}
                       </button>
                     )}
                   </div>

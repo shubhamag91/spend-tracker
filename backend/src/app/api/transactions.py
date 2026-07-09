@@ -149,6 +149,21 @@ def set_transfer(txn_id: int, is_transfer: bool = Query(...), db: Session = Depe
     return txn
 
 
+@router.patch("/{txn_id}/poker", response_model=TransactionOut)
+def set_poker(txn_id: int, is_poker: bool = Query(...), db: Session = Depends(get_db)):
+    """Manually mark/unmark a one-off transaction as a poker settlement — for a
+    counterparty not worth adding to POKER_KEYWORDS. Excludes it from Spend and Income."""
+    txn = db.query(Transaction).filter(Transaction.id == txn_id).first()
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    txn.is_internal_transfer = is_poker
+    # tag it as a manual override so reconcile (on the next import) won't reset it
+    txn.bucket = "poker" if is_poker else None
+    db.commit()
+    db.refresh(txn)
+    return txn
+
+
 @router.patch("/{txn_id}/category", response_model=TransactionOut)
 def update_category(txn_id: int, category_id: Optional[int] = None, db: Session = Depends(get_db)):
     txn = db.query(Transaction).filter(Transaction.id == txn_id).first()
