@@ -37,13 +37,13 @@ consumed — and investments get their own page (invested vs. returns). Includes
 
 ## Features
 
-- **Auto-ingestion**: Drop a CSV / PDF / XLS / XLSX bank statement into `backend/data/watched_folder/` and it ingests automatically
+- **Auto-ingestion**: Drop a CSV / PDF / XLS / XLSX bank statement into a per-account subfolder under `backend/data/watched_folder/` (e.g. `HDFC Savings/`, `SBI Card/`) and it auto-tags to that account, auto-renames to its statement date (`2026-06-12.pdf`), and ingests — no manual account selection needed; a top-level drop still ingests but stays untagged, and `_`-prefixed folders (e.g. `_Grip/`) are skipped for reference files that shouldn't be imported. See `backend/data/watched_folder/README.md`.
 - **Manual upload**: Drag-and-drop upload from the dashboard UI
 - **Multi-bank support**: HDFC, ICICI, and a generic CSV fallback via a registry pattern; PDF (pdfplumber) and Excel (openpyxl/xlrd) parsers
-- **Credit-card statements**: Dedicated PDF parsers for HDFC, SBI, Axis, and American Express cards (password-protected statements decrypted via pypdf); card charges become per-merchant spend, card payments/cashback stay out of income
+- **Credit-card statements**: Dedicated PDF parsers for HDFC, SBI, Axis, and American Express cards; password-protected statements are auto-decrypted (`pypdf`, passwords in `PDF_PASSWORDS` in `.env`) generically for any issuer, not just cards; card charges become per-merchant spend, card payments/cashback stay out of income
 - **Smart classification**: Auto-detects internal transfers (self top-ups) and investments (Grip, Zerodha, Groww, SIPs…) and keeps them out of "spend"; a `bucket` column further separates **poker** settlements (counterparty names in `POKER_KEYWORDS`, kept in `.env`) and **manually-marked transfers** (a wash like a loan to a friend that gets repaid), both excluded from spend & income
 - **Cross-account transfer detection**: Moves between two of your own accounts are matched (debit↔credit) and excluded from spend & income
-- **Per-account view**: Tag each statement to its account on upload; an account selector scopes the whole dashboard to one bank/card or shows them combined
+- **Per-account view**: Tag each statement to its account on upload, or automatically via its watched-folder subfolder name; an account selector scopes the whole dashboard to one bank/card or shows them combined
 - **Account freshness**: A card on the Spends page shows each account's *data-through* date with a colour-coded staleness dot, so you know which statement to import next
 - **Investment management**: A dedicated Investments page with payee rules (e.g. Lendbox, Indian Clearing) + one-click manual tagging keeps investments out of "spend" — for existing and future imports (bank accounts only); a rule can carry a display label so the breakdown shows the real platform (e.g. keyword `INGENICO` → `Grip`). An **Invested / Returns toggle** views outflows (money invested) vs inflows (redemptions/payouts) separately, with KPIs for total invested, total returns, and platform count
 - **Fixed-spends tracker**: A dedicated page for recurring monthly commitments — rent, bills (electricity/internet/phone), EMIs, and subscriptions (Netflix, Spotify, Claude…) — detected by name and **normalised to a monthly cost** by each item's billing frequency (quarterly ÷3, variable lump-sums averaged); rules can carry a min-amount floor so one merchant string can be split into multiple bills (e.g. parents' electricity vs phone, both via Airtel Payments Bank), or a fixed monthly-amount override for lump-sum prepaids (e.g. a ₹20,007 maintenance recharge that's really ₹5,200/month). Also handles **recurring cash expenses** (cook, maid, driver…) that never hit a statement — each auto-generates a monthly entry (on a synthetic "Cash" account) into spend + Fixed Spends, backfilled on every startup so months don't need manual entry
@@ -132,8 +132,9 @@ Taking this over? After the setup above:
    - `ACCOUNT_HOLDER_NAMES` — your name(s) **exactly as they appear in your bank statements**. This drives self-transfer (top-up) detection; without it, your own top-ups get miscounted as income/spend.
    - `INVESTMENT_KEYWORDS` / `CARD_PAYMENT_KEYWORDS` — tune to the platforms you use (defaults live in [config.py](backend/src/app/config.py)).
    - `POKER_KEYWORDS` — counterparty names for private-game settlements (JSON list). Kept in `.env` (not the repo) since they're personal; matched rows land in the "poker" bucket, out of spend & income.
+   - `PDF_PASSWORDS` — passwords for encrypted statement PDFs (JSON list, e.g. Axis cards). Each is tried against any locked PDF before parsing.
 
-3. **Import your real data** — drop a CSV / PDF / XLS / XLSX statement into `backend/data/watched_folder/` (auto-ingests) or use the upload button in the UI. Re-importing is safe; duplicates are skipped.
+3. **Import your real data** — drop a CSV / PDF / XLS / XLSX statement into its account's subfolder under `backend/data/watched_folder/` (e.g. `HDFC Savings/`, `SBI Card/` — matching an account name auto-tags it) or use the upload button in the UI. Re-importing is safe; duplicates are skipped.
 
 4. **Verify the backend** with the test suite: `cd backend && python -m pytest -q`.
 

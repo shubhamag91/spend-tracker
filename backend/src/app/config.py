@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     # are personal, so they live in config/.env (gitignored), NOT here — set
     # POKER_KEYWORDS='["NAME ONE","NAME TWO"]'. See config/.env.example.
     poker_keywords: list[str] = []
+    # Passwords for encrypted PDF statements (e.g. Axis credit-card statements).
+    # The ingestion layer tries each one to unlock a protected PDF before parsing.
+    # Personal, so kept in config/.env (gitignored) — set PDF_PASSWORDS='["PWD1"]'.
+    pdf_passwords: list[str] = []
 
     class Config:
         env_file = str(Path(__file__).parent.parent.parent / "config" / ".env")

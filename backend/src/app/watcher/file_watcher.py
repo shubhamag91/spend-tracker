@@ -50,14 +50,26 @@ class _DropFolderHandler(FileSystemEventHandler):
         return ready
 
 
+def _account_id_for(folder_name: str, db) -> int | None:
+    """A statement in a subfolder named exactly after an account is tagged to it
+    (e.g. `SBI Card/…pdf`). Root-level or unmatched folders → None (untagged)."""
+    from app.models.account import Account
+    acct = db.query(Account).filter(Account.name == folder_name).first()
+    return acct.id if acct else None
+
+
 def _watcher_loop(folder: str, handler: _DropFolderHandler, observer: Observer):
     while observer.is_alive():
         for filepath in handler.drain_ready():
-            logger.info(f"Watcher: ingesting {filepath}")
+            parent = Path(filepath).parent.name
+            if parent.startswith("_"):
+                logger.info(f"Watcher: skipping {filepath} (a _-prefixed report/archive folder)")
+                continue
             db = SessionLocal()
             try:
-                log = run_ingestion(filepath, db)
-                logger.info(f"Watcher: ingested {filepath} — {log.rows_inserted} inserted, {log.rows_skipped} skipped")
+                account_id = _account_id_for(parent, db)   # subfolder named after an account → tag to it
+                log = run_ingestion(filepath, db, account_id=account_id, rename_on_success=True)
+                logger.info(f"Watcher: ingested {filepath} (account_id={account_id}) — {log.rows_inserted} inserted, {log.rows_skipped} skipped, renamed to {log.filename}")
             except Exception as e:
                 logger.error(f"Watcher: failed to ingest {filepath}: {e}")
             finally:
@@ -69,7 +81,7 @@ def start_watcher(folder: str) -> None:
     Path(folder).mkdir(parents=True, exist_ok=True)
     handler = _DropFolderHandler()
     observer = Observer()
-    observer.schedule(handler, folder, recursive=False)
+    observer.schedule(handler, folder, recursive=True)   # watch per-account subfolders too
     observer.start()
 
     loop_thread = threading.Thread(target=_watcher_loop, args=(folder, handler, observer), daemon=True)

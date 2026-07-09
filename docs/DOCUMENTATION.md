@@ -50,7 +50,7 @@ the entire model (see §2).
 
 | Capability | Description |
 |---|---|
-| Auto-ingestion | Drop a bank export into `backend/data/watched_folder/` — it ingests automatically |
+| Auto-ingestion | Drop a bank export into its account's subfolder under `backend/data/watched_folder/` — auto-tags to that account, auto-renames to its statement date, and ingests (§ File watcher) |
 | Manual upload | Drag-and-drop import from the dashboard |
 | Multi-bank support | HDFC, ICICI, and a generic CSV fallback; Excel (XLS/XLSX); PDF bank statements |
 | Credit-card statements | Dedicated PDF parsers for HDFC, SBI, Axis, and American Express cards (incl. password-protected) |
@@ -469,7 +469,10 @@ per line; direction comes from an explicit `D`/`C` / `Dr`/`Cr` marker where the
 issuer prints one (SBI, Axis) or from keywords otherwise (HDFC, Amex). Any source
 listed in the normalizer's `_CARD_SOURCES` has its credits treated as card
 settlement, not income (§4.3). Password-protected statements (e.g. Axis) are
-decrypted with `pypdf` before parsing. The HDFC card parser strips a misleading
+decrypted generically in the pipeline (`app/utils/pdf_decrypt.py`, via `pypdf`)
+before any parser sees the file — it tries each password in `settings.pdf_passwords`
+(`PDF_PASSWORDS` in `config/.env`, gitignored) against any encrypted PDF, so this
+isn't tied to a specific issuer's parser. The HDFC card parser strips a misleading
 leading `EMI ` label that HDFC prints on some full (non-installment) charges, so the
 description is the real merchant name. HDFC "payment received" lines extract with a
 **blank description** — these now parse as a credit labelled `PAYMENT RECEIVED` (treated
@@ -483,7 +486,23 @@ Categories API (cache invalidated on change).
 
 ### File watcher
 `app/watcher/file_watcher.py` uses `watchdog` to monitor
-`backend/data/watched_folder/`; new files auto-ingest. Formats: `.csv`, `.xlsx`, `.xls`.
+`backend/data/watched_folder/` **recursively**; new files auto-ingest. Formats:
+`.csv`, `.xlsx`, `.xls`, `.pdf`.
+
+- **Per-account subfolders** — a file dropped in a subfolder whose name exactly
+  matches an account (`Account.name`) is auto-tagged to that account
+  (`account_id` passed to `run_ingestion`), no manual selection needed. A file at
+  the top level (no subfolder) still ingests but stays untagged. See
+  `backend/data/watched_folder/README.md` for the live folder layout.
+- **`_`-prefixed folders are skipped entirely** — use these for reference files
+  that shouldn't be ingested (e.g. `_Grip/`, `_Lendbox/` hold third-party holdings
+  reports, not statements).
+- **Auto-rename on success** (`rename_on_success=True`, watcher-only —
+  `app/utils/file_naming.py`) — after a successful ingest, the source file is
+  renamed to `<latest transaction date>.<ext>` (e.g. `2026-06-12.pdf`) so the
+  folder is browsable at a glance. A same-day name collision appends `(2)`, `(3)`,
+  etc.; a file already named correctly is left alone. Uploads via the API use
+  throwaway temp paths, so this only applies to watched-folder drops.
 
 ### Demo mode
 `app/demo/generator.py` creates synthetic transactions under `data_mode='demo'`.
