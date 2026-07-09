@@ -8,14 +8,14 @@ import InvestmentMonthlyChart from '../components/charts/InvestmentMonthlyChart'
 import { useSelectedAccountId } from '../store/selectedAccount';
 import { useTransactions, type SortField, type SortDir } from '../hooks/useTransactions';
 import { useByDay } from '../hooks/useAnalytics';
-import DateRangeFilter, { type DateRange, PRESETS } from '../components/dashboard/DateRangeFilter';
+import DateRangeFilter, { type DateRange, DEFAULT_RANGE } from '../components/dashboard/DateRangeFilter';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
 
 export default function Investments() {
   const mode = useMode();
   const accountId = useSelectedAccountId();
-  const [range, setRange] = useState<DateRange>(PRESETS[0]);
+  const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
   const dateRange = range.start ? { start: range.start, end: range.end } : undefined;
 
   const [view, setView] = useState<'invested' | 'returns'>('invested');

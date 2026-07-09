@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMode } from '../store/demoMode';
 import { useSummary, useByMonth, useByDay } from '../hooks/useAnalytics';
-import DateRangeFilter, { type DateRange, PRESETS } from '../components/dashboard/DateRangeFilter';
+import DateRangeFilter, { type DateRange, DEFAULT_RANGE } from '../components/dashboard/DateRangeFilter';
 import AccountFreshness from '../components/dashboard/AccountFreshness';
 import FileUploadModal from '../components/upload/FileUploadModal';
 import { formatCurrency, formatMonthLabel } from '../utils/formatters';
@@ -28,7 +28,7 @@ const TrendTooltip = ({ active, payload, label }: any) => {
 
 export default function Dashboard() {
   const mode = useMode();
-  const [range, setRange] = useState<DateRange>(PRESETS[0]);
+  const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
   const [showUpload, setShowUpload] = useState(false);
   const dateRange = range.start ? { start: range.start, end: range.end } : undefined;
 

@@ -57,7 +57,7 @@ the entire model (see §2).
 | Smart classification | Auto-detects internal transfers (top-ups) and investments (§4) |
 | Auto-categorization | Keyword matching assigns categories (Food, Transport, …) |
 | Analytics | Wallet breakdown, category spend, weekly velocity, day-of-week heatmap, top merchants, recurring detection, insights |
-| Date filtering | This Month / Last Month / Last 30 Days / This Year / All Time + custom range clamped to your data |
+| Date filtering | Defaults to the current financial year (Apr 1 – Mar 31, computed dynamically) so an incomplete trailing month doesn't skew totals; also This Month / Last Month / Last 30 Days / This (calendar) Year / All Time + custom range clamped to your data |
 | Demo mode | Synthetic data for sharing without exposing real finances — ~13 months of spend, income, investments and returns so every page is populated |
 | Deduplication | Two-level hash guards prevent double-ingestion |
 
@@ -260,9 +260,8 @@ period has no data, the page collapses to a single empty state.
 
 - **Headline** — *You spent ₹X* for the selected range, with the **transaction count** and **daily average** beneath it.
 - **Monthly trend** — a bar chart of spend per month.
-- **Recent transactions** — a short list of the latest spends.
-- **Account freshness** — each bank/card with its *data-through* date and a colour-coded staleness dot (🟢 ≤7d, 🟡 ≤30d, 🔴 >30d), so you can see which account needs a fresh statement.
-- **Date control** — preset pills + a Custom Range picker pre-filled with and clamped to your real data bounds.
+- **Account freshness** — each bank/card with its full **coverage range** (earliest → latest transaction date, `earliest_transaction_date`/`latest_transaction_date` from `GET /accounts/status`) and a colour-coded staleness dot (🟢 ≤7d, 🟡 ≤30d, 🔴 >30d) based on the latest date, so you can see both which account needs a fresh statement and where its data starts/has gaps.
+- **Date control** — preset pills + a Custom Range picker pre-filled with and clamped to your real data bounds. Defaults to the current **financial year** preset (§ Date filtering below), not "All Time".
 
 (The old wallet/"Unspent in wallet" hero and the patterns/heatmap/insights charts were
 removed from this page; the underlying `/analytics/*` endpoints still exist.)
@@ -405,7 +404,7 @@ The bank accounts and credit cards you own. Each transaction links to one via
 | Endpoint | Purpose |
 |---|---|
 | `GET ""` | List accounts (ordered by type, then name) |
-| `GET /status` | Per-account freshness: latest transaction date + transaction count (which statement to pull next) |
+| `GET /status` | Per-account freshness: earliest + latest transaction date (full coverage range) + transaction count (which statement to pull next, and where gaps are) |
 | `POST ""` | Create — `name` (unique), `type` ∈ {`bank`, `card`}, optional `issuer`, `last4` |
 | `PATCH /{id}` | Update any field |
 | `DELETE /{id}` | Delete — linked transactions survive, their `account_id` is set null |

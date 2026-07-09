@@ -4,7 +4,7 @@ import { useSelectedAccountId } from '../store/selectedAccount';
 import { useTransactions, type SortField, type SortDir } from '../hooks/useTransactions';
 import { useByDay } from '../hooks/useAnalytics';
 import TransactionTable from '../components/transactions/TransactionTable';
-import DateRangeFilter, { type DateRange, PRESETS } from '../components/dashboard/DateRangeFilter';
+import DateRangeFilter, { type DateRange, DEFAULT_RANGE } from '../components/dashboard/DateRangeFilter';
 import FileUploadModal from '../components/upload/FileUploadModal';
 import { useDemoModeStore } from '../store/demoMode';
 
@@ -12,7 +12,7 @@ export default function Transactions() {
   const mode = useMode();
   const accountId = useSelectedAccountId();
   const isDemoMode = useDemoModeStore((s) => s.isDemoMode);
-  const [range, setRange] = useState<DateRange>(PRESETS[0]);
+  const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
   const [kind, setKind] = useState<'all' | 'spend' | 'income' | 'investment' | 'transfer' | 'poker'>('all');
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<SortField>('date');

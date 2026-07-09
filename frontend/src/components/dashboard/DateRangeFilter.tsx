@@ -10,9 +10,28 @@ export interface DateRange {
 const today = () => new Date();
 const fmt = (d: Date) => format(d, 'yyyy-MM-dd');
 
+// Indian financial year: Apr 1 – Mar 31. Before April, the current FY started last calendar year.
+function startOfFinancialYear(d: Date): Date {
+  const year = d.getMonth() >= 3 /* April */ ? d.getFullYear() : d.getFullYear() - 1;
+  return new Date(year, 3, 1);
+}
+function financialYearLabel(d: Date): string {
+  const startYear = startOfFinancialYear(d).getFullYear();
+  return `FY ${startYear}–${String(startYear + 1).slice(-2)}`;
+}
+
+// Default view: current financial year onward — hides prior-FY data (e.g. an
+// incomplete trailing March) without deleting it; still reachable via "All Time".
+// eslint-disable-next-line react-refresh/only-export-components
+export const DEFAULT_RANGE: DateRange = {
+  label: financialYearLabel(today()),
+  start: fmt(startOfFinancialYear(today())),
+};
+
 // eslint-disable-next-line react-refresh/only-export-components
 export const PRESETS: DateRange[] = [
   { label: 'All Time' },
+  DEFAULT_RANGE,
   {
     label: 'This Month',
     start: fmt(startOfMonth(today())),

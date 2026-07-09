@@ -26,20 +26,25 @@ def accounts_status(mode: str = Query("real", pattern="^(real|demo)$"), db: Sess
     """Per-account freshness: the latest transaction date (how current the data is)
     and transaction count — so you can see which account needs a new statement."""
     rows = (
-        db.query(Account, func.max(Transaction.date), func.count(Transaction.id))
+        db.query(Account, func.min(Transaction.date), func.max(Transaction.date), func.count(Transaction.id))
         .outerjoin(Transaction, and_(Transaction.account_id == Account.id, Transaction.data_mode == mode))
         .group_by(Account.id)
         .order_by(Account.type, Account.name)
         .all()
     )
-    out = []
-    for acct, latest, count in rows:
-        if isinstance(latest, str):  # SQLite may return the date as text
+
+    def _as_date(v):
+        if isinstance(v, str):  # SQLite may return the date as text
             from datetime import datetime as _dt
-            latest = _dt.strptime(latest[:10], "%Y-%m-%d").date()
+            return _dt.strptime(v[:10], "%Y-%m-%d").date()
+        return v
+
+    out = []
+    for acct, earliest, latest, count in rows:
         out.append(AccountStatus(
             id=acct.id, name=acct.name, type=acct.type, last4=acct.last4,
-            latest_transaction_date=latest, transaction_count=count,
+            earliest_transaction_date=_as_date(earliest), latest_transaction_date=_as_date(latest),
+            transaction_count=count,
         ))
     return out
 

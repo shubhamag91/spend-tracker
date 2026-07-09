@@ -20,6 +20,7 @@ export interface AccountStatus {
   name: string;
   type: 'bank' | 'card';
   last4: string | null;
+  earliest_transaction_date: string | null;
   latest_transaction_date: string | null;
   transaction_count: number;
 }

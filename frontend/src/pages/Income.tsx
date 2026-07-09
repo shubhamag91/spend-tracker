@@ -3,7 +3,7 @@ import { useMode } from '../store/demoMode';
 import {
   useSummary, useIncomeMonthly, useIncomeSources, useSavingsTrajectory,
 } from '../hooks/useAnalytics';
-import DateRangeFilter, { type DateRange, PRESETS } from '../components/dashboard/DateRangeFilter';
+import DateRangeFilter, { type DateRange, DEFAULT_RANGE } from '../components/dashboard/DateRangeFilter';
 import { formatCurrency, formatMonthLabel } from '../utils/formatters';
 
 function SectionLabel({ children }: { children: string }) {
@@ -24,7 +24,7 @@ function StatCard({ label, value, sub, subColor = 'text-slate-400' }: {
 
 export default function Income() {
   const mode = useMode();
-  const [range, setRange] = useState<DateRange>(PRESETS[0]);
+  const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
   const dateRange = range.start ? { start: range.start, end: range.end } : undefined;
 
   const summary = useSummary(mode, dateRange);

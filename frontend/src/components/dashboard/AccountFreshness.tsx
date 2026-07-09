@@ -42,7 +42,11 @@ export default function AccountFreshness() {
                   {a.name} <span className="text-[10px] text-slate-400 uppercase">{a.type}</span>
                 </p>
                 <p className="text-xs text-slate-400">
-                  {a.latest_transaction_date ? <>through {formatDate(a.latest_transaction_date)} · <span className={f.text}>{f.label}</span></> : 'no transactions'}
+                  {a.latest_transaction_date ? (
+                    <>
+                      {a.earliest_transaction_date ? formatDate(a.earliest_transaction_date) : '?'} – {formatDate(a.latest_transaction_date)} · <span className={f.text}>{f.label}</span>
+                    </>
+                  ) : 'no transactions'}
                 </p>
               </div>
             </div>

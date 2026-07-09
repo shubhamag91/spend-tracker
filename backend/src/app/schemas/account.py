@@ -34,5 +34,6 @@ class AccountStatus(BaseModel):
     name: str
     type: str
     last4: Optional[str] = None
+    earliest_transaction_date: Optional[date] = None  # where the account's data starts
     latest_transaction_date: Optional[date] = None   # how current the account's data is
     transaction_count: int
