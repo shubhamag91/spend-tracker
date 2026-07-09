@@ -10,7 +10,6 @@ config/.env
 *.sqlite3
 backend/data/*.db
 backend/data/watched_folder/*
-backend/watched_folder/*
 !**/.gitkeep
 # belt-and-suspenders: statement files dropped anywhere, not just the watched folders
 *.pdf
