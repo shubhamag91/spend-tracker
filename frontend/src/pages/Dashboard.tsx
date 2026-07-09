@@ -1,15 +1,11 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMode } from '../store/demoMode';
 import { useSummary, useByMonth, useByDay } from '../hooks/useAnalytics';
-import { useTransactions } from '../hooks/useTransactions';
-import { useSelectedAccountId } from '../store/selectedAccount';
 import DateRangeFilter, { type DateRange, PRESETS } from '../components/dashboard/DateRangeFilter';
 import AccountFreshness from '../components/dashboard/AccountFreshness';
 import FileUploadModal from '../components/upload/FileUploadModal';
-import CategoryBadge from '../components/transactions/CategoryBadge';
-import { formatCurrency, formatDate, formatMonthLabel } from '../utils/formatters';
+import { formatCurrency, formatMonthLabel } from '../utils/formatters';
 
 function compactInr(v: number) {
   if (!Number.isFinite(v)) return '₹0';
@@ -32,7 +28,6 @@ const TrendTooltip = ({ active, payload, label }: any) => {
 
 export default function Dashboard() {
   const mode = useMode();
-  const accountId = useSelectedAccountId();
   const [range, setRange] = useState<DateRange>(PRESETS[0]);
   const [showUpload, setShowUpload] = useState(false);
   const dateRange = range.start ? { start: range.start, end: range.end } : undefined;
@@ -40,12 +35,6 @@ export default function Dashboard() {
   const summary = useSummary(mode, dateRange);
   const byMonth = useByMonth(mode, dateRange);
   const allDays = useByDay(mode);
-  // recent spend only — debits that aren't investments (transfers/card-bills are rare here)
-  const recent = useTransactions({
-    mode, account_id: accountId, transaction_type: 'debit', is_investment: false,
-    start_date: dateRange?.start, end_date: dateRange?.end,
-    sort_by: 'date', sort_dir: 'desc', page: 1, page_size: 8,
-  });
 
   const dataBounds = allDays.data?.length
     ? { min: allDays.data[0].label, max: allDays.data[allDays.data.length - 1].label }
@@ -106,30 +95,6 @@ export default function Dashboard() {
                   <Bar dataKey="total" fill="#6d6af0" radius={[3, 3, 0, 0]} maxBarSize={56} />
                 </BarChart>
               </ResponsiveContainer>
-            )}
-          </div>
-
-          {/* Recent transactions */}
-          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-800">Recent transactions</h2>
-              <Link to="/transactions" className="text-xs text-indigo-600 hover:underline">View all →</Link>
-            </div>
-            {(recent.data?.items.length ?? 0) === 0 ? (
-              <div className="h-24 flex items-center justify-center text-slate-400 text-sm">No transactions</div>
-            ) : (
-              <table className="w-full text-sm">
-                <tbody>
-                  {recent.data?.items.map((t) => (
-                    <tr key={t.id} className="hover:bg-slate-50">
-                      <td className="px-5 py-2.5 text-slate-500 whitespace-nowrap w-28">{formatDate(t.date)}</td>
-                      <td className="px-2 py-2.5 text-slate-700 max-w-xs truncate">{t.description}</td>
-                      <td className="px-2 py-2.5">{t.category ? <CategoryBadge name={t.category.name} color={t.category.color} /> : <span className="text-xs text-slate-400">—</span>}</td>
-                      <td className="px-5 py-2.5 text-right font-medium text-red-600 whitespace-nowrap">-{formatCurrency(t.amount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             )}
           </div>
 
