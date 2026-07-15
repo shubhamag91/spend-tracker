@@ -3,13 +3,15 @@ import client from '../api/client';
 import { useSelectedAccountId } from '../store/selectedAccount';
 import type { SubscriptionSummary, SubscriptionRule } from '../types';
 
-export function useSubscriptionSummary(mode: string) {
+export function useSubscriptionSummary(mode: string, dateRange?: { start?: string; end?: string }) {
   const accountId = useSelectedAccountId();
   return useQuery<SubscriptionSummary>({
-    queryKey: ['subscriptions', 'summary', mode, accountId],
+    queryKey: ['subscriptions', 'summary', mode, accountId, dateRange?.start, dateRange?.end],
     queryFn: () => {
       const params: Record<string, string | number> = { mode };
       if (accountId != null) params.account_id = accountId;
+      if (dateRange?.start) params.start_date = dateRange.start;
+      if (dateRange?.end) params.end_date = dateRange.end;
       return client.get('/subscriptions/summary', { params }).then((r) => r.data);
     },
   });
@@ -22,13 +24,15 @@ export interface FixedMonthPoint {
   by_type: Record<string, number>;
 }
 
-export function useSubscriptionMonthly(mode: string) {
+export function useSubscriptionMonthly(mode: string, dateRange?: { start?: string; end?: string }) {
   const accountId = useSelectedAccountId();
   return useQuery<FixedMonthPoint[]>({
-    queryKey: ['subscriptions', 'monthly', mode, accountId],
+    queryKey: ['subscriptions', 'monthly', mode, accountId, dateRange?.start, dateRange?.end],
     queryFn: () => {
       const params: Record<string, string | number> = { mode };
       if (accountId != null) params.account_id = accountId;
+      if (dateRange?.start) params.start_date = dateRange.start;
+      if (dateRange?.end) params.end_date = dateRange.end;
       return client.get('/subscriptions/monthly', { params }).then((r) => r.data);
     },
   });

@@ -88,6 +88,8 @@ def delete_rule(rule_id: int, db: Session = Depends(get_db)):
 def subscriptions_summary(
     mode: str = Query("real", pattern="^(real|demo)$"),
     account_id: int | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     db: Session = Depends(get_db),
 ):
     """Detect fixed-spend charges via rule keywords and normalise each to a
@@ -110,6 +112,10 @@ def subscriptions_summary(
     ]
     if account_id is not None:
         base.append(Transaction.account_id == account_id)
+    if start_date is not None:
+        base.append(Transaction.date >= start_date)
+    if end_date is not None:
+        base.append(Transaction.date <= end_date)
     txns = db.query(Transaction).filter(*base).all()
     if not txns and not has_cash:
         return empty
@@ -192,6 +198,8 @@ def subscriptions_summary(
 def subscriptions_monthly(
     mode: str = Query("real", pattern="^(real|demo)$"),
     account_id: int | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     db: Session = Depends(get_db),
 ):
     """Actual fixed-spend paid each month — the real transactions matching a
@@ -211,6 +219,10 @@ def subscriptions_monthly(
     ]
     if account_id is not None:
         base.append(Transaction.account_id == account_id)
+    if start_date is not None:
+        base.append(Transaction.date >= start_date)
+    if end_date is not None:
+        base.append(Transaction.date <= end_date)
     txns = db.query(Transaction).filter(*base).all()
 
     monthly: dict[str, dict[str, float]] = collections.defaultdict(lambda: collections.defaultdict(float))
