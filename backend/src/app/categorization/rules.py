@@ -24,7 +24,9 @@ DEFAULT_CATEGORIES = [
     {
         "name": "Utilities",
         "color": "#64748b",
-        "keywords": ["airtel", "jio", "bsnl", "electricity", "bescom", "tatapower", "adani electric", "gas", "water bill", "broadband", "recharge"],
+        # cred.telecom / cred.utility are phone and utility bills paid *through* CRED —
+        # the UPI handle is the only clue to what was actually bought.
+        "keywords": ["airtel", "jio", "bsnl", "electricity", "bescom", "tatapower", "adani electric", "gas", "water bill", "broadband", "recharge", "cred.telecom", "cred.utility"],
     },
     {
         "name": "Entertainment",

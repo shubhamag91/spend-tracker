@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     card_payment_keywords: list[str] = [
         "CRED CLUB", "CRED.CLUB", "CREDITCARD", "CREDIT CARD", "CARD PAYMENT",
         "CC PAYMENT", "AUTOPAY-CRED", "BILLDESK CRED",
+        # Match CRED's card-settlement handle only. A bare "CRED." prefix would also
+        # catch CRED.TELECOM / CRED.UTILITY / CRED.GIFTCARD — bills you *pay through*
+        # CRED, which are ordinary spend, not a card being settled.
     ]
     # Poker settlements — money in/out of a private game, neither spend nor income
     # (tagged into the "poker" bucket, excluded from spend/income). Counterparty names

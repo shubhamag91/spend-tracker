@@ -2,24 +2,37 @@
 own accounts. These are not real income or spend and must be excluded from
 analytics, otherwise they inflate income and savings figures.
 
-Heuristic: a transaction is an internal transfer when the counterparty named in
-the description is the account holder themselves, appearing immediately after a
-bank-transfer reference (IMPS/NEFT/FT/MMT + reference number).
+Heuristic: bank narrations put the *counterparty* in the field immediately after
+the transfer reference (an IFSC code, or an IMPS reference number). When that
+counterparty is the account holder, the money is going to / coming from another
+account they own.
 
-Example that SHOULD match (self transfer):
-    IMPS-000000000000-YOURNAME-UTIB-XXXXXXXXXXX0000-IM
+Position is what carries the meaning — the holder's name appearing *somewhere*
+is not enough, because they are also the named beneficiary on every payment they
+receive:
 
-Example that should NOT match (incoming payment where the holder is only the
-beneficiary, not the originator — i.e. real income):
-    NEFT CR-XXXX0000000-EXAMPLE CORP NOV 2025-YOURNAM
+    NEFT DR-YESB0000524-YOURNAME-NETBANK, MUM-…        self transfer  (counterparty)
+    NEFT CR-BARC0INBBIR-EXAMPLE CORP-YOURNAME-…        salary         (beneficiary)
+    RTGS CR-SCBL0036001-SOME MUTUAL FUND-YOURNAME-…    redemption     (beneficiary)
+
+A name-anywhere match flags all three, which silently wipes out real income. Only
+the first has the holder in the counterparty slot.
 """
 from __future__ import annotations
 import re
 from app.config import settings
 
 _TRANSFER_PREFIX = r"(?:IMPS|NEFT|IFT|FT|MMT|RTGS|TPT|ACH)"
-# any bank-transfer marker present anywhere in the (normalized) description
-_HAS_TRANSFER = re.compile(_TRANSFER_PREFIX)
+_IFSC = r"[A-Z]{4}[A-Z0-9]{7}"   # bank branch code, e.g. YESB0000524
+_REF = r"\d{6,}"                 # bare reference number, e.g. IMPS-604053934010-…
+
+# <PREFIX> [DR|CR] - <IFSC|ref> - <COUNTERPARTY> - <rest…>
+# The counterparty runs to the next hyphen; capturing it lets us test *which*
+# field the holder's name landed in rather than merely whether it is present.
+_COUNTERPARTY = re.compile(
+    rf"{_TRANSFER_PREFIX}\s*(?:DR|CR)?\s*-\s*(?:{_IFSC}|{_REF})\s*-\s*([^-]+)",
+    re.IGNORECASE,
+)
 
 
 def _normalize(text: str) -> str:
@@ -28,26 +41,19 @@ def _normalize(text: str) -> str:
 
 
 def is_internal_transfer(description: str, names: list[str] | None = None) -> bool:
-    """True if the description looks like a transfer involving the holder's own name.
+    """True if the transfer's counterparty is the account holder themselves.
 
-    Two patterns are matched:
-    1. `<PREFIX><digits><NAME>` — name right after a transfer ref
-       (e.g. IMPS-000000000000-YOURNAME-UTIB-…)
-    2. The holder's full name appears anywhere in a transfer-type line
-       (e.g. NEFT DR-XXXX0000000-YOURNAME-NETBANK, MUM).
-    Requiring the *full* name token avoids false positives like an MF redemption
-    where only a truncated beneficiary name appears (…MUTUAL FUND-SHUB).
+    Returns False for payments where the holder is merely the beneficiary (salary,
+    fund redemptions, vendor payouts) — those name the holder too, but in a later
+    field.
     """
     names = names if names is not None else settings.account_holder_names
     if not names:
         return False
-    norm = _normalize(description)
-    for name in names:
-        token = _normalize(name)
-        if not token:
-            continue
-        if re.search(rf"{_TRANSFER_PREFIX}\d+{token}", norm):
-            return True
-        if token in norm and _HAS_TRANSFER.search(norm):
-            return True
-    return False
+    match = _COUNTERPARTY.search(description or "")
+    if not match:
+        return False
+    counterparty = _normalize(match.group(1))
+    if not counterparty:
+        return False
+    return any(_normalize(name) == counterparty for name in names if _normalize(name))

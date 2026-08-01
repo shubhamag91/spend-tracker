@@ -163,9 +163,12 @@ Runs after every ingestion and on demand via `POST /api/transactions/reconcile-t
 This is the reliable signal once you have ≥2 accounts: an incoming salary/vendor
 payment has **no matching debit**, so it is correctly kept as income rather than
 mistaken for a self-transfer.
-Detector: `backend/src/app/utils/interbank.py`. Reconcile resets the transfer flag on
-bank rows before re-deriving pairs, but **skips any row with a `bucket` set** (§4.4),
-so poker tags and manual transfer marks survive a re-import.
+Detector: `backend/src/app/utils/interbank.py`. Before re-deriving pairs, reconcile
+resets each bank row to the **name-based verdict** (b) rather than to `False` — a
+transfer into an account whose statements start later has no counterpart row to pair
+with, and resetting it to `False` would silently turn it back into spend on every
+re-import. It **skips any row with a `bucket` set** (§4.4), so poker tags and manual
+transfer marks survive too.
 
 **c) Manual marking.** Auto-detection can't see third-party washes — e.g. a loan to a
 friend that later gets repaid. `PATCH /api/transactions/{id}/transfer?is_transfer=`
@@ -173,22 +176,31 @@ sets `is_internal_transfer` and `bucket="transfer"` on a row (a "mark transfer /
 transfer" action in the transactions table), excluding it from spend & income; because
 it carries a `bucket`, reconcile leaves it alone on the next import.
 
-**b) Name-based (single statement).** When only one account is in play, a credit is
-a self-transfer when your own name appears right after a transfer reference:
+**b) Name-based (narration).** A transfer is a self-transfer when your own name is the
+**counterparty** — the field immediately after the IFSC code or IMPS reference. Position
+is what carries the meaning, because you are also the named beneficiary on every payment
+you *receive*:
 
+- ✅ `NEFT DR-YESB0000524-YOURNAME-NETBANK, MUM-…` → your own account (counterparty)
 - ✅ `IMPS-000000000000-YOURNAME-UTIB-…` → top-up (your own money)
-- ❌ `NEFT CR-…-EXAMPLE CORP-YOURNAM` → real income (you're only the beneficiary)
+- ❌ `NEFT CR-BARC0INBBIR-EXAMPLE CORP-YOURNAME-…` → salary (you're only the beneficiary)
+- ❌ `RTGS CR-SCBL0036001-EXAMPLE MUTUAL FUND-YOURNAME-…` → redemption, not a transfer
+
+Matching the name *anywhere* in the narration instead would flag all four, wiping out
+real income — so the detector captures the counterparty field and tests only that.
 
 Detector: `backend/src/app/utils/transfers.py` · names in `config.py` → `account_holder_names`
-(set these to your own name(s) — see `config/.env.example`). Note: for
-account-tagged data, the cross-account matcher recomputes this flag, replacing the
-name-based guess and avoiding its false positives on incoming payments.
+(set these to your own name(s) — see `config/.env.example`). This is the **baseline**
+verdict; where both statements are loaded, (a) upgrades a row to a confirmed pair.
 
 ### 4.2 `is_investment` — wealth, not spend
-A debit is an investment when it goes to a broking/MF/SIP platform. Three signals:
+A debit is an investment when it goes to a broking/MF/SIP platform. Four signals:
 
 - ✅ Any UPI handle containing `.BRK@` (`GRIPBROKING.CF.BRK@…`, `INDSTOCKS.ICCL1.BRK@…`)
 - ✅ Built-in platform names: Grip, Zerodha, Groww, INDSTOCKS, Smallcase, Kuvera, Upstox, INDmoney…
+- ✅ **Outward forex remittances** — HDFC books these as `RFX <ref> USD<amt>@<rate>`; they
+  fund an overseas broking account. Every `RFX` line is claimed, so a remittance sent for
+  anything else (travel, fees) needs a manual mark — a `bucket` beats keyword detection.
 - ✅ **User-defined payee rules** (`investment_rules` table) — keywords like `LENDBOX`,
   `INDIAN CLEARING` that the app didn't ship knowing, managed from the Investments page.
 
@@ -209,7 +221,10 @@ earnings. A platform **label** can span several keywords (e.g. Grip = `GRIP`, `I
 ### 4.3 `is_card_payment` — card settlement, not spend or income
 Two cases, both kept out of the numbers so card money is counted once:
 - A **debit on a bank account** paying a card bill (`CRED CLUB`, `CREDIT CARD`…) —
-  excluded from spend (the real consumption is the itemised card charges).
+  excluded from spend (the real consumption is the itemised card charges). Match the
+  settlement handle specifically: CRED fronts other bills under sibling handles
+  (`CRED.TELECOM`, `CRED.UTILITY`, `CRED.GIFTCARD`) which are ordinary spend, so a
+  blanket `CRED.` prefix would wrongly hide them.
 - **Any credit on a card statement** (payment received, cashback, refund) — excluded
   from income; a card never earns income, it only gets settled.
 
@@ -650,7 +665,7 @@ cd backend && python -m pytest -q     # 45 passing
 
 - **Wallet model over income model** — loaded/invested/spent buckets, not income/savings (§2).
 - **Classification flags** — `is_internal_transfer` and `is_investment` keep top-ups and wealth out of "spend" (§4).
-- **Transfers detected by matching, not just by name** — once data is account-tagged, a self-transfer is identified by a debit↔credit pair across two accounts, which is more precise than name-matching and avoids flagging incoming payments as transfers (§4.1).
+- **Transfers detected by name position, upgraded by matching** — the narration's *counterparty* field decides (your name there = your own account; your name as trailing beneficiary = income). A debit↔credit pair across two accounts confirms it, but pairing alone can't be the whole answer: it only sees transfers where both statements are loaded (§4.1).
 - **Parser registry pattern** — bank logic is isolated; the registry is the only place that knows which parsers exist.
 - **Amount always positive** — `transaction_type` carries direction; avoids signed-amount bugs in `SUM()`.
 - **`data_mode` everywhere** — real and demo coexist in one DB; switching is a single `WHERE`; server stays stateless.

@@ -6,10 +6,10 @@ destination account, a day or two apart. Neither is real consumption or real
 income, so both sides are marked `is_internal_transfer=True` and drop out of
 spend/income analytics.
 
-This is more precise than name-only detection: an incoming salary/vendor payment
-where you're merely the beneficiary has **no matching debit** in another tracked
-account, so it is correctly left as income instead of being mistaken for a
-self-transfer.
+Pairing is the stronger signal, but it only sees transfers where both statements
+are loaded. So it layers on top of the narration check in `utils.transfers`:
+that verdict is the baseline, and a confirmed pair upgrades a transaction to a
+transfer even when the narration alone wouldn't have said so.
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -17,6 +17,7 @@ from datetime import date
 from sqlalchemy.orm import Session
 from app.models.transaction import Transaction
 from app.models.account import Account
+from app.utils.transfers import is_internal_transfer
 
 _AMOUNT_EPS = 0.01          # paise-level tolerance for "same amount"
 _DEFAULT_WINDOW_DAYS = 3    # NEFT/IMPS usually settle same-day or next-day
@@ -51,8 +52,12 @@ def reconcile_internal_transfers(
     # alone — reconcile only manages auto-detected own-account pairs, so a re-import
     # never clobbers something the user tagged by hand.
     auto = [t for t in txns if t.bucket is None]
+    # Reset to the narration-level verdict rather than to False. Pairing can only
+    # see transfers where *both* statements are loaded, so a move into an account
+    # whose statements start later (or aren't tracked at all) has no counterpart row
+    # to match and would otherwise be reset to spend on every re-import.
     for t in auto:
-        t.is_internal_transfer = False
+        t.is_internal_transfer = is_internal_transfer(t.description)
 
     debits = sorted(
         (t for t in auto if t.transaction_type == "debit"),

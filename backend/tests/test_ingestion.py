@@ -138,6 +138,34 @@ def test_no_names_configured_flags_nothing():
     assert is_internal_transfer("IMPS-123-YOURNAME-UTIB", []) is False
 
 
+def test_detects_self_neft_to_own_other_bank():
+    # holder is the counterparty right after the IFSC — money moving to their own account
+    desc = "NEFT DR-XXXX0000000-YOURNAME-NETBANK, MUM-XXXXX00000000000000-XXXXXX"
+    assert is_internal_transfer(desc, NAMES) is True
+
+
+def test_does_not_flag_income_naming_holder_as_beneficiary():
+    # holder's FULL name is present, but as beneficiary — the counterparty is the payer.
+    # A name-anywhere match would wrongly swallow salary and fund redemptions as transfers.
+    salary = "NEFT CR-XXXX0INBBIR-EXAMPLE GLOBAL SERVICE CENTRE-YOURNAME-001ONCF26175B0CS"
+    redemption = "RTGS CR-XXXX0036001-EXAMPLE MUTUAL FUND-YOURNAME-SCBLR12026071500801449"
+    assert is_internal_transfer(salary, NAMES) is False
+    assert is_internal_transfer(redemption, NAMES) is False
+
+
+from app.utils.investments import is_investment
+
+
+def test_forex_remittance_is_investment():
+    # outward USD remittance funding an overseas broking account
+    assert is_investment("RFX 160726BTT00815 USD410.97@97.0725", []) is True
+
+
+def test_forex_lookalikes_are_not_investment():
+    assert is_investment("RFX REVERSAL CHARGES", []) is False
+    assert is_investment("UPI-SWIGGY-SWIGGYSTORES@ICICI", []) is False
+
+
 from app.utils.merchant import normalize_merchant
 
 
