@@ -144,6 +144,19 @@ def test_detects_self_neft_to_own_other_bank():
     assert is_internal_transfer(desc, NAMES) is True
 
 
+def test_detects_self_transfer_labelled_by_the_bank():
+    # Yes Bank writes outbound transfers back-to-front vs HDFC: its own ref, then a
+    # beneficiary *nickname*, then the destination IFSC — so the counterparty slot
+    # holds "SHUBHAMHDFC", not the holder's name. The literal "self" field carries it.
+    desc = "NET-NEFT-YESOB62010073043-YOURNICKNAME-HDFC0000011-self-HDFC BANK"
+    assert is_internal_transfer(desc, NAMES) is True
+
+
+def test_self_needs_a_transfer_context():
+    # a merchant that merely has "self" in its name is not a transfer
+    assert is_internal_transfer("UPI-SELF CARE SALON-SELFCARE@YBL", NAMES) is False
+
+
 def test_does_not_flag_income_naming_holder_as_beneficiary():
     # holder's FULL name is present, but as beneficiary — the counterparty is the payer.
     # A name-anywhere match would wrongly swallow salary and fund redemptions as transfers.

@@ -34,6 +34,16 @@ _COUNTERPARTY = re.compile(
     re.IGNORECASE,
 )
 
+# Banks disagree on field order. Yes Bank writes outbound transfers back-to-front
+# relative to HDFC — its own reference first, then a *beneficiary nickname*, then
+# the destination IFSC:
+#     NET-NEFT-YESOB62010073043-SHUBHAMHDFC-HDFC0000011-self-HDFC BANK
+# The counterparty slot holds a nickname rather than the holder's name, so the
+# positional check above can't see it. But the bank has already labelled the
+# transfer "self", which is a stronger signal than any name match.
+_HAS_TRANSFER = re.compile(rf"\b{_TRANSFER_PREFIX}\b", re.IGNORECASE)
+_SELF_FIELD = re.compile(r"[-\s]SELF(?=[-\s]|$)", re.IGNORECASE)
+
 
 def _normalize(text: str) -> str:
     """Uppercase and strip to alphanumerics so hyphen/space variations don't matter."""
@@ -41,15 +51,19 @@ def _normalize(text: str) -> str:
 
 
 def is_internal_transfer(description: str, names: list[str] | None = None) -> bool:
-    """True if the transfer's counterparty is the account holder themselves.
+    """True if the transfer is between the holder's own accounts.
 
-    Returns False for payments where the holder is merely the beneficiary (salary,
-    fund redemptions, vendor payouts) — those name the holder too, but in a later
-    field.
+    Either the narration carries an explicit "self" field, or the counterparty is
+    the holder themselves. Returns False for payments where the holder is merely the
+    beneficiary (salary, fund redemptions, vendor payouts) — those name the holder
+    too, but in a later field.
     """
     names = names if names is not None else settings.account_holder_names
     if not names:
         return False
+    # The bank saying "self" outright beats inferring it from the counterparty name.
+    if _HAS_TRANSFER.search(description or "") and _SELF_FIELD.search(description or ""):
+        return True
     match = _COUNTERPARTY.search(description or "")
     if not match:
         return False

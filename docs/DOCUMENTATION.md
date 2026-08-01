@@ -189,6 +189,16 @@ you *receive*:
 Matching the name *anywhere* in the narration instead would flag all four, wiping out
 real income — so the detector captures the counterparty field and tests only that.
 
+Banks disagree on field order, so position alone isn't enough. Yes Bank writes outbound
+transfers back-to-front relative to HDFC — its own reference first, then a beneficiary
+*nickname*, then the destination IFSC — and the nickname won't match `account_holder_names`:
+
+- ✅ `NET-NEFT-YESOB62010073043-YOURNICKNAME-HDFC0000011-self-HDFC BANK`
+
+Here the bank has labelled it `self` outright, which is checked first and beats any name
+inference. The `self` field is only honoured inside a transfer-prefixed narration, so a
+merchant with "self" in its name isn't caught.
+
 Detector: `backend/src/app/utils/transfers.py` · names in `config.py` → `account_holder_names`
 (set these to your own name(s) — see `config/.env.example`). This is the **baseline**
 verdict; where both statements are loaded, (a) upgrades a row to a confirmed pair.
